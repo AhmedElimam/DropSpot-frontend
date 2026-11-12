@@ -1,4 +1,5 @@
 import client from './client';
+import { deliveryOf, type DeliveryScope, type SessionDelivery } from '@/remote/delivery';
 
 /**
  * «حصة أونلاين» (remote session) — a live class in our own room. The room is a web page served
@@ -15,6 +16,23 @@ export interface TeacherRemoteState {
   live: boolean;
   /** Students watching right now. */
   viewers: number;
+}
+
+/**
+ * «حضوري / أونلاين» — how a session is held, said in advance (src/remote/delivery.ts). On every
+ * session row that carries `remote`, and on a group row of the course page. Absent on an older
+ * server; `in_person` while the feature is off for that teacher.
+ */
+export type { SessionDelivery, DeliveryScope } from '@/remote/delivery';
+
+/** The answer to a change: what it is now, and how many sessions moved (the families are told once). */
+export interface DeliveryChange {
+  delivery: SessionDelivery;
+  scope: DeliveryScope;
+  /** Sessions whose answer changed. */
+  changed: number;
+  /** Groups whose standing answer changed (0 for one session). */
+  groups: number;
 }
 
 /** On a student's session row (`/students/{id}/sessions/today` and `/upcoming`). Absent/null = feature off for that teacher. */
@@ -45,7 +63,11 @@ export interface RemoteRoomStatus {
 }
 
 /** Machine codes the server puts beside its Arabic `message`. */
-export type RemoteErrorCode = 'REMOTE_NOT_CONFIGURED' | 'REMOTE_NOT_LIVE' | 'BILLING_BLOCKED' | (string & {});
+export type RemoteErrorCode =
+  | 'REMOTE_NOT_CONFIGURED' | 'REMOTE_NOT_LIVE' | 'BILLING_BLOCKED'
+  // «حضوري / أونلاين»: back to in person while the room is on air · a session that is over · a cancelled one.
+  | 'REMOTE_LIVE' | 'SESSION_ENDED' | 'SESSION_CANCELLED'
+  | (string & {});
 
 type Id = string | number;
 
@@ -57,6 +79,9 @@ export const remotePaths = {
   teacherStatus: (sessionId: Id) => `/teacher/sessions/${encodeURIComponent(String(sessionId))}/remote`,
   studentJoin: (studentId: Id, sessionId: Id) =>
     `/students/${encodeURIComponent(String(studentId))}/sessions/${encodeURIComponent(String(sessionId))}/remote/join`,
+  sessionDelivery: (sessionId: Id) => `/teacher/sessions/${encodeURIComponent(String(sessionId))}/delivery`,
+  groupDelivery: (courseId: Id, scheduleId: Id) =>
+    `/teacher/courses/${encodeURIComponent(String(courseId))}/schedules/${encodeURIComponent(String(scheduleId))}/delivery`,
 } as const;
 
 /** The house envelope is `{ data: … }`; a bare body is read as it is. */
@@ -106,6 +131,33 @@ export async function getRemoteSessionStatus(sessionId: Id): Promise<RemoteRoomS
 export async function joinRemoteSessionAsStudent(studentId: Id, sessionId: Id): Promise<string> {
   const { data } = await client.post(remotePaths.studentJoin(studentId, sessionId));
   return joinUrlOf(data);
+}
+
+function changeOf(body: any, asked: SessionDelivery, scope: DeliveryScope): DeliveryChange {
+  const d = unwrap<Partial<DeliveryChange>>(body) ?? {};
+  return {
+    delivery: d.delivery === 'remote' || d.delivery === 'in_person' ? deliveryOf(d.delivery) : asked,
+    scope,
+    changed: Math.max(0, Number(d.changed) || 0),
+    groups: Math.max(0, Number(d.groups) || 0),
+  };
+}
+
+/**
+ * Say how a session is held — that one (`session`), its group from now on (`group`), or every
+ * group of this teacher (`all`). The server refuses a session that is over or cancelled, and
+ * going back to in person while its room is on air (409 `REMOTE_LIVE`). The students and
+ * their parents get ONE notification for the whole change.
+ */
+export async function setSessionDelivery(sessionId: Id, delivery: SessionDelivery, scope: DeliveryScope): Promise<DeliveryChange> {
+  const { data } = await client.post(remotePaths.sessionDelivery(sessionId), { delivery, scope });
+  return changeOf(data, delivery, scope);
+}
+
+/** The same from a group's schedule, where there is no session to stand on: that group, from now on. */
+export async function setGroupDelivery(courseId: Id, scheduleId: Id, delivery: SessionDelivery): Promise<DeliveryChange> {
+  const { data } = await client.post(remotePaths.groupDelivery(courseId, scheduleId), { delivery });
+  return changeOf(data, delivery, 'group');
 }
 
 /**

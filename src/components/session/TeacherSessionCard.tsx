@@ -14,6 +14,7 @@ import { useRevisionActive } from '@/hooks/useRevisionTheme';
 import { sessionPhase, type SessionPhase } from '@/utils/sessionPhase';
 import { TeacherRemoteAction } from '@/components/remote/TeacherRemoteAction';
 import { isSameLocalDay } from '@/remote/room';
+import { OnlineChip } from '@/components/remote/SessionDelivery';
 
 export { sessionPhase, type SessionPhase };
 
@@ -46,6 +47,8 @@ export interface SessionCardData {
   homework_due?: { body: string; assigned_on: string | null } | null;
   /** «حصة أونلاين»: on air or not, and who is watching (today's rows). Absent/null = feature off. */
   remote?: { live: boolean; viewers: number } | null;
+  /** «حضوري / أونلاين»: how the session is held. Absent on older servers = in person. */
+  delivery?: 'in_person' | 'remote';
 }
 
 const PHASE = (): Record<SessionPhase, { stripe: string; chipBg: string; chipText: string; key: string }> => ({
@@ -119,6 +122,8 @@ export const SessionCard = memo(function SessionCard({
         <Surface id="teacher.session_card.meta">
         <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
           {kind ? <Surface id="teacher.session_card.season_chip" ctx={{ session: s }}><RevisionChip kind={kind} /></Surface> : null}
+          {/* «أونلاين»: this session is held online (said in advance from the schedule). */}
+          {s.delivery === 'remote' ? <OnlineChip row={s} size="sm" /> : null}
           {noDoor ? (
             <Surface id="teacher.session_card.private_chip" ctx={{ session: s }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: colors.accentLight, borderRadius: radius.full, paddingVertical: 1, paddingHorizontal: 8 }}>

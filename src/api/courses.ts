@@ -55,6 +55,8 @@ export interface CourseSchedule {
   headcount: number;
   /** This group is kept from assistants (teacher-only switch). */
   hidden_from_assistants?: boolean;
+  /** «حضوري / أونلاين»: the group's standing answer — its new sessions are born with it. Absent on older servers. */
+  delivery?: 'in_person' | 'remote';
 }
 
 export interface CourseDetail {

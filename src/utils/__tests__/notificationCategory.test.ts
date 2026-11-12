@@ -10,6 +10,8 @@ describe('notificationCategory', () => {
     ['session_swap', 'attendance'],
     // «حصة أونلاين» is on air: a session, filed with attendance (where it is recorded).
     ['remote_session_live', 'attendance'],
+    // «حضوري / أونلاين» changed: a session too.
+    ['session_delivery_changed', 'attendance'],
     ['card_order_delivered', 'students'],
     ['booking_request', 'students'],
     ['student_report_safety', 'students'],

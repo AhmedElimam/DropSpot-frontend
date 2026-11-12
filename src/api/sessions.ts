@@ -52,5 +52,7 @@ function extractSession(item: any): SessionInstance {
     homework_due: a.homework_due ?? null,
     // «حصة أونلاين»: only a well-formed field counts; anything else = the feature is off.
     remote: a.remote && typeof a.remote === 'object' ? { live: a.remote.live === true } : null,
+    // «حضوري / أونلاين»: anything but `remote` is in person (an older server sends nothing).
+    delivery: a.delivery === 'remote' ? 'remote' : 'in_person',
   };
 }

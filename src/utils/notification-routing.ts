@@ -257,6 +257,8 @@ function parentRoute(type: string, data: Record<string, unknown> | null | undefi
     case 'student_linked':
     // «حصة أونلاين»: the child's class is on air — their page carries the line and «شاهد الحصة».
     case 'remote_session_live':
+    // «حضوري / أونلاين» changed: the child's page lists the next sessions with «أونلاين» on them.
+    case 'session_delivery_changed':
       return child;
     // The sibling gate's confirm/deny card lives on the parent home screen.
     case 'sibling_claim':
@@ -325,6 +327,8 @@ function studentRoute(type: string, data: Record<string, unknown> | null | undef
     case 'parent_unreachable':
     // «حصة أونلاين»: the class is on air — home's spotlight carries «الحصة أونلاين دلوقتي — ادخل».
     case 'remote_session_live':
+    // «حضوري / أونلاين» changed: home's spotlight and today's list say how the session is held.
+    case 'session_delivery_changed':
       return '/(student)/(tabs)';
     case 'student_edit_result':
       return '/(student)/profile';

@@ -1,14 +1,15 @@
 import { useCallback, useRef, useState } from 'react';
 import { Linking } from 'react-native';
 import { router, type Href } from 'expo-router';
-import { useQueryClient, type QueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/ui/dialog';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { binaryVersion } from '@/utils/binaryVersion';
 import { getFriendlyErrorMessage } from '@/utils/errors';
-import { endRemoteSession, remoteErrorSentence, startRemoteSession } from '@/api/remoteSession';
+import { endRemoteSession, remoteErrorSentence, setGroupDelivery, setSessionDelivery, startRemoteSession, type DeliveryChange } from '@/api/remoteSession';
 import { canBroadcastFromPhone, offerJoinUrl } from '@/remote/room';
+import type { DeliveryScope, SessionDelivery } from '@/remote/delivery';
 
 /** «حصة أونلاين» — the feature switch (super-admin, /app-config). Everything remote hangs off this. */
 export const REMOTE_FLAG = 'remote_sessions';
@@ -33,6 +34,41 @@ export function refreshTeacherRemote(qc: QueryClient, sessionId: string | number
 export function refreshFamilyRemote(qc: QueryClient): void {
   qc.invalidateQueries({ queryKey: ['sessions'] });
   qc.invalidateQueries({ queryKey: ['attendance'] });
+}
+
+/**
+ * «حضوري / أونلاين» changed: the session queries the remote hooks refresh (today's cards, the
+ * sessions list, the session pages — every one of them, since a group's or every group's
+ * sessions may have moved with this one) and the course pages, whose group rows carry the
+ * standing answer.
+ */
+export function refreshAfterDelivery(qc: QueryClient, courseId?: string | number | null): void {
+  qc.invalidateQueries({ queryKey: ['teacher-sessions-today'] });
+  qc.invalidateQueries({ queryKey: ['teacher-session-detail'] });
+  qc.invalidateQueries({ queryKey: ['teacher-session-history'] });
+  qc.invalidateQueries({ queryKey: courseId != null ? ['teacher-course', String(courseId)] : ['teacher-course'] });
+}
+
+/**
+ * The teacher says how a session is held: that one, its group from now on, or every group.
+ * The caller shows the result (the server's refusal is an Arabic sentence — remoteErrorSentence).
+ */
+export function useSetSessionDelivery(sessionId: string) {
+  const qc = useQueryClient();
+  return useMutation<DeliveryChange, unknown, { delivery: SessionDelivery; scope: DeliveryScope }>({
+    mutationFn: ({ delivery, scope }) => setSessionDelivery(sessionId, delivery, scope),
+    // Refused or not, what the cards show may be stale (changed from the website, a room that went live).
+    onSettled: () => refreshAfterDelivery(qc),
+  });
+}
+
+/** The same from a group's schedule (the course page): that group, from now on. */
+export function useSetGroupDelivery(courseId: string) {
+  const qc = useQueryClient();
+  return useMutation<DeliveryChange, unknown, { scheduleId: string; delivery: SessionDelivery }>({
+    mutationFn: ({ scheduleId, delivery }) => setGroupDelivery(courseId, scheduleId, delivery),
+    onSettled: () => refreshAfterDelivery(qc, courseId),
+  });
 }
 
 /**

@@ -34,6 +34,8 @@ import { useQuery } from '@tanstack/react-query';
 import { getStudentTeachers } from '@/api/studentOverview';
 import { Surface } from '@/ui/surfaces';
 import { tracksAttendance } from '@/utils/privateLesson';
+import { useRemoteSessionsEnabled } from '@/hooks/useRemoteSession';
+import { isRemoteDelivery } from '@/remote/delivery';
 
 function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371000;
@@ -84,9 +86,13 @@ export default function CheckInTab() {
   // Phone check-in is offered only when the session is still scheduled, phone check-in
   // is permitted for it, the window is open, and the student hasn't already checked in.
   // A private lesson (tracks_attendance false) is never checkable: there is no attendance to take.
+  // Nor is a session held online (2026-11-12): there is no door — it is entered from its card
+  // once the teacher opens it, and attendance records itself.
+  const remoteOn = useRemoteSessionsEnabled();
   const isCheckable = (s: SessionInstance) =>
     tracksAttendance(s) && s.status === 'scheduled' && s.phone_checkin_allowed === true
-    && getCheckInWindow(s.scheduled_at).canCheckIn && !s.checked_in;
+    && getCheckInWindow(s.scheduled_at).canCheckIn && !s.checked_in
+    && !(remoteOn && isRemoteDelivery(s));
   const checkableSessions = todaySessions.filter(isCheckable);
   const [selectedSession, setSelectedSession] = useState<number | null>(null);
   const [checkedIn, setCheckedIn] = useState(false);

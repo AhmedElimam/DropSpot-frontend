@@ -115,6 +115,25 @@ describe('homework reminders open where they are about (2026-11-11)', () => {
   });
 });
 
+describe('«حضوري / أونلاين» changed (session_delivery_changed)', () => {
+  const data = { session_instance_id: 81, student_id: 5, delivery: 'remote', scope: 'group' };
+
+  it('goes where «حصة أونلاين» goes: a student to home, a parent to that child\'s page', () => {
+    expect(notificationRouteFor({ role: 'student', type: 'session_delivery_changed', data })).toBe('/(student)/(tabs)');
+    expect(notificationRouteFor({ role: 'student', type: 'session_delivery_changed' })).toBe('/(student)/(tabs)');
+    expect(notificationRouteFor({ role: 'parent', type: 'session_delivery_changed', data })).toBe('/(parent)/child/5');
+    expect(notificationRouteFor({ role: 'parent', type: 'session_delivery_changed', data: { delivery: 'remote' } })).toBe('/(parent)/(tabs)');
+    for (const role of ['student', 'parent'] as const) {
+      expect(notificationRouteFor({ role, type: 'session_delivery_changed', data })).toBe(notificationRouteFor({ role, type: 'remote_session_live', data }));
+    }
+  });
+
+  it('is the families\': a teacher or an assistant is taken nowhere', () => {
+    expect(notificationRouteFor({ role: 'teacher', type: 'session_delivery_changed', data })).toBeNull();
+    expect(notificationRouteFor({ role: 'assistant', type: 'session_delivery_changed', data, can: () => true })).toBeNull();
+  });
+});
+
 describe('«حصة أونلاين» is on air (remote_session_live)', () => {
   const data = { session_instance_id: 81, student_id: 5 };
 

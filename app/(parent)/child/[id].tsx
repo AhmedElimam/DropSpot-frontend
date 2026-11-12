@@ -35,6 +35,7 @@ import { Surface } from '@/ui/surfaces';
 import { PrivateLessonChip } from '@/components/attendance/PrivateLessonChip';
 import { tracksAttendance } from '@/utils/privateLesson';
 import { ParentRemoteLive } from '@/components/remote/RemoteJoin';
+import { OnlineChip } from '@/components/remote/SessionDelivery';
 import { useRemoteSessionsEnabled } from '@/hooks/useRemoteSession';
 import { isRemoteLive } from '@/remote/room';
 
@@ -258,6 +259,9 @@ export default function ChildDetailScreen() {
                           <Surface id="parent.child.upcoming_sessions.private_label" ctx={{ session: s }}>
                             <PrivateLessonChip of={s} short />
                           </Surface>
+                        ) : s.delivery === 'remote' ? (
+                          // «أونلاين»: this session is held online — the child attends it from the app.
+                          <OnlineChip row={s} size="sm" />
                         ) : null}
                       </View>
                     ))}

@@ -34,4 +34,6 @@ export interface SessionInstance extends AttendanceModeFields {
   homework_due?: { body: string; assigned_on: string | null; rating: string | null } | null;
   /** «حصة أونلاين»: the class is on air (today / upcoming rows). Absent/null = the feature is off for that teacher. */
   remote?: { live: boolean } | null;
+  /** «حضوري / أونلاين»: how the session is held, said in advance. Absent on older servers = in person. */
+  delivery?: 'in_person' | 'remote';
 }

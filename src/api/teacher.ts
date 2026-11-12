@@ -1,7 +1,7 @@
 import client from './client';
 import { homePart } from '@/api/homeBatch';
 import { extractList, extractAttrs } from './utils';
-import type { TeacherRemoteState } from './remoteSession';
+import type { SessionDelivery, TeacherRemoteState } from './remoteSession';
 
 export interface CheckinPermission {
   id: number;
@@ -55,6 +55,8 @@ export interface TeacherSession {
   homework_due?: { body: string; assigned_on: string | null } | null;
   /** «حصة أونلاين»: on air or not, and who is watching. Absent/null = the feature is off for this teacher. */
   remote?: TeacherRemoteState | null;
+  /** «حضوري / أونلاين»: how the session is held. Absent on older servers = in person. */
+  delivery?: SessionDelivery;
 }
 
 export async function getTeacherTodaySessions(): Promise<TeacherSession[]> {

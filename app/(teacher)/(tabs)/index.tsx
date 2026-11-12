@@ -46,6 +46,7 @@ import { useTickets } from '@/hooks/useTickets';
 import { formatNumber, formatDayDate } from '@/utils/format';
 import { pickCurrentSession, goToScan } from '@/utils/sessionNav';
 import { TeacherRemoteAction } from '@/components/remote/TeacherRemoteAction';
+import { OnlineChip } from '@/components/remote/SessionDelivery';
 import { isSameLocalDay } from '@/remote/room';
 import { useMinuteClock } from '@/hooks/useMinuteClock';
 import { useRose } from '@/hooks/useRose';
@@ -472,6 +473,7 @@ function Spotlight({ s, now, canScan, onScan, onOpen }: { s: TeacherSession; now
                 <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: '#fff' }}>{t('teacher.position_of', { n: formatNumber(s.cycle_position.n), of: formatNumber(s.cycle_position.of) })}</Text>
               </View>
             ) : null}
+            {s.delivery === 'remote' ? <OnlineChip row={s} onColor size="sm" /> : null}
             {/* Says the card opens: the session's page, its details (founder 2026-10-25). */}
             {sheetOn ? (
               <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 2 }}>

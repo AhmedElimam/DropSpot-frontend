@@ -20,6 +20,7 @@ import { useTeacherOnboarding } from '@/hooks/useTeacherOnboarding';
 import { formatNumber } from '@/utils/format';
 import { Surface } from '@/ui/surfaces';
 import type { CourseSchedule } from '@/api/courses';
+import { GroupDeliveryControl, OnlineChip } from '@/components/remote/SessionDelivery';
 
 // Matches Course::PREFERRED_ACCURACY_METERS — a worse GPS fix is flagged low-confidence.
 const PREFERRED_ACCURACY = 20;
@@ -322,6 +323,8 @@ export default function CourseDetailScreen() {
                       <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.brand }}>{t('course_ui.hidden_chip')}</Text>
                     </View>
                   ) : null}
+                  {/* «أونلاين»: this group's sessions are held online (changed from «تعديل الموعد»). */}
+                  {slot.delivery === 'remote' ? <OnlineChip row={slot} size="sm" /> : null}
                 </View>
                 <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>
                   {t('form_ui.students_n', { n: formatNumber(slot.headcount) })}{slot.capacity != null ? ` / ${formatNumber(slot.capacity)}` : ''} · {t('teacher.upcoming_count', { count: slot.upcoming_count })}
@@ -354,7 +357,8 @@ export default function CourseDetailScreen() {
       </FormCard>
       </Surface>
 
-      <Surface id="teacher.course_detail.edit_slot_sheet"><EditSlotSheet courseId={id} slot={editing} onClose={() => setEditing(null)} /></Surface>
+      {/* `delivery` is read off the live course, not the row captured when the sheet opened: it changes while the sheet is up. */}
+      <Surface id="teacher.course_detail.edit_slot_sheet"><EditSlotSheet courseId={id} slot={editing} delivery={course.schedules.find((x) => x.id === editing?.id)?.delivery} onClose={() => setEditing(null)} /></Surface>
 
       {/* Danger zone — hard-delete the whole course. Teacher only. */}
         <Surface id="teacher.course_detail.danger_zone" assistantNeeds="teacher">
@@ -374,7 +378,7 @@ const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
  * of the week»). Upcoming sessions nothing has touched move with it; held ones stay; the
  * group's families are told — the server does all of that, this only asks.
  */
-function EditSlotSheet({ courseId, slot, onClose }: { courseId: string; slot: CourseSchedule | null; onClose: () => void }) {
+function EditSlotSheet({ courseId, slot, delivery, onClose }: { courseId: string; slot: CourseSchedule | null; delivery?: CourseSchedule['delivery']; onClose: () => void }) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const update = useUpdateSchedule(courseId);
@@ -422,6 +426,8 @@ function EditSlotSheet({ courseId, slot, onClose }: { courseId: string; slot: Co
       <Field label={t('teacher.schedule_capacity')}>
         <NumberInput value={capacity} onChangeText={setCapacity} placeholder={t('teacher.optional')} maxLength={4} />
       </Field>
+      {/* «حصص المجموعة: حضوري | أونلاين» — this group's sessions from now on (teacher only, feature on). */}
+      {slot ? <GroupDeliveryControl courseId={courseId} scheduleId={slot.id} delivery={delivery} style={{ marginTop: spacing.md }} /> : null}
       <Banner tone="info" text={t('teacher.edit_slot_hint')} style={{ marginTop: spacing.md }} />
       <Button title={t('teacher.edit_slot_save')} onPress={save} loading={update.isPending} disabled={!ready} variant="primary" />
     </SheetModal>

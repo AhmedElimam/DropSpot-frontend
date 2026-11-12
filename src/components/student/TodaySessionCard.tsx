@@ -14,6 +14,9 @@ import { tracksAttendance } from '@/utils/privateLesson';
 import { Surface } from '@/ui/surfaces';
 import { StudentRemoteJoin } from '@/components/remote/RemoteJoin';
 import { isRemoteLive } from '@/remote/room';
+import { useRemoteSessionsEnabled } from '@/hooks/useRemoteSession';
+import { OnlineChip, WaitsForTeacherLine } from '@/components/remote/SessionDelivery';
+import { isRemoteDelivery } from '@/remote/delivery';
 
 export type SessionPhase = 'live' | 'soon' | 'later' | 'done' | 'cancelled';
 
@@ -47,6 +50,9 @@ export const TodaySessionCard = memo(function TodaySessionCard({ session, now, t
 }) {
   const { t } = useTranslation();
   const { phase, minutesToStart, progress } = sessionPhase(session, now);
+  // «حضوري / أونلاين»: held online (and the feature on for this person) — no door for it.
+  const remoteOn = useRemoteSessionsEnabled();
+  const online = remoteOn && isRemoteDelivery(session);
   const start = new Date(session.scheduled_at);
   const end = new Date(start.getTime() + (session.duration_minutes || 60) * 60000);
   // A private lesson records no outcome and offers no check-in: the card shows the time,
@@ -133,6 +139,9 @@ export const TodaySessionCard = memo(function TodaySessionCard({ session, now, t
           <Surface id="student.check_in.session_card.private_label" ctx={{ session }}>
             <PrivateLessonChip of={session} style={{ flexShrink: 1 }} />
           </Surface>
+        ) : online ? (
+          // Held online: no door, so no «بالكارت / من الموبايل» — the chip says how it is attended.
+          <OnlineChip row={session} />
         ) : session.status === 'scheduled' || phase === 'live' ? (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
             <Icon name={session.phone_checkin_allowed ? 'phone' : 'card'} size={12} color={session.phone_checkin_allowed ? colors.successText : colors.textTertiary} outline={!session.phone_checkin_allowed} />
@@ -153,6 +162,9 @@ export const TodaySessionCard = memo(function TodaySessionCard({ session, now, t
       {tracked && session.phone_checkin_allowed && phase === 'live' && !inWindow && !outcome ? (
         <Text style={{ fontFamily: fonts.regular, fontSize: 11.5, color: colors.textTertiary, marginTop: 6 }}>{t('attendance.outside_window')}</Text>
       ) : null}
+
+      {/* An online session its teacher has not opened yet: «هتبدأ لما المدرّس يفتحها», in place of a check-in. */}
+      {online ? <WaitsForTeacherLine session={session} now={now} style={{ marginTop: spacing.sm }} /> : null}
 
       {/* «حصة أونلاين»: the class is on air — enter it from here. Attendance records itself after
           watching for a while, and the card then shows it as it always does. */}

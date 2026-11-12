@@ -6,7 +6,8 @@ const RULES: [NotificationCategory, RegExp][] = [
   // A teacher's session notes and homework, reported by الناظر, sit with the day's digest — not attendance.
   ['followup', /^(session_notes|nazer_morning|homework|homework_streak|homework_due_reminder|homework_check_reminder)$/],
   ['money', /invoice|payment|cash|expense|billing|financial|subscription/],
-  // `remote_session_live` («حصة أونلاين» is on air) is a session: it sits with attendance.
+  // `remote_session_live` («حصة أونلاين» is on air) is a session: it sits with attendance —
+  // and so does `session_delivery_changed` (a session became online, or went back to in person).
   ['attendance', /attendance|absence|left_early|checkin|session|schedule|excuse|swap|pending_scans/],
   ['students', /student|card|enrollment|booking|sibling|parent|guardian|invitation|grade|graduation|linked|termination/],
   ['followup', /ticket|report|assistant|discrepancy|digest/],

@@ -33,6 +33,7 @@ import { goToScan } from '@/utils/sessionNav';
 import { Surface } from '@/ui/surfaces';
 import type { TeacherSession } from '@/api/teacher';
 import { TeacherRemoteAction } from '@/components/remote/TeacherRemoteAction';
+import { SessionDeliveryControl } from '@/components/remote/SessionDelivery';
 import { isSameLocalDay } from '@/remote/room';
 
 type RosterTab = 'roster' | 'swap';
@@ -521,6 +522,8 @@ export default function SessionDetailScreen() {
                 )}
               </LinearGradient>
               </Surface>
+              {/* «الحصة: حضوري | أونلاين» — said in advance; the other value asks how far it goes. */}
+              <SessionDeliveryControl sessionId={String(s.id)} session={s} now={now} />
               {/* «حصة أونلاين» — start today's class in our own live room, or go back into it. */}
               {s.remote && !s.is_cancelled ? (
                 <TeacherRemoteAction sessionId={String(s.id)} remote={s.remote} variant="panel" canStart={isSameLocalDay(s.scheduled_at, now)} />

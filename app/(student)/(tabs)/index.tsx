@@ -43,6 +43,8 @@ import { tracksAttendance, attendanceLabel } from '@/utils/privateLesson';
 import { StudentRemoteJoin, RemoteLiveChip } from '@/components/remote/RemoteJoin';
 import { useRemoteSessionsEnabled } from '@/hooks/useRemoteSession';
 import { isRemoteLive } from '@/remote/room';
+import { OnlineChip, WaitsForTeacherLine } from '@/components/remote/SessionDelivery';
+import { waitsForTeacher } from '@/remote/delivery';
 
 const statusDot = (): Record<string, string> => ({
   live: colors.success,
@@ -302,6 +304,9 @@ function Spotlight({ s, now }: { s: Session; now: number }) {
   // then the card says so instead of offering the door's check-in.
   const onAir = isRemoteLive(s.remote);
   const attended = s.attendance_status === 'present' || s.attendance_status === 'late';
+  // «حضوري / أونلاين»: an online session not opened yet has no door to check in at.
+  const remoteOn = useRemoteSessionsEnabled();
+  const waiting = waitsForTeacher(s, remoteOn, now);
   return (
     <TouchableOpacity onPress={() => router.navigate('/(student)/(tabs)/check-in')} activeOpacity={0.9} accessibilityRole="button" style={{ borderRadius: radius.xxl, overflow: 'hidden', ...shadows.md }}>
       <LinearGradient colors={gradients.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ padding: spacing.lg }}>
@@ -310,6 +315,7 @@ function Spotlight({ s, now }: { s: Session; now: number }) {
           <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: 'rgba(255,255,255,0.8)' }}>
             {onAir ? t('remote.live_chip') : live ? t('home.live_session') : t('home.next_session')}
           </Text>
+          {s.delivery === 'remote' && !onAir ? <OnlineChip row={s} onColor size="sm" /> : null}
         </View>
         <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: '#fff', marginTop: 4 }} numberOfLines={1}>{s.course_name}</Text>
         <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: 'rgba(255,255,255,0.8)', marginTop: 2 }} numberOfLines={1}>
@@ -343,13 +349,15 @@ function Spotlight({ s, now }: { s: Session; now: number }) {
               <Icon name="check" size={14} color="#fff" />
               <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#fff' }}>{t('remote.checked_in')}</Text>
             </View>
-          ) : onAir ? null : live || soon ? (
+          ) : onAir || waiting ? null : live || soon ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#fff', borderRadius: radius.full, paddingVertical: 8, paddingHorizontal: spacing.lg }}>
               <Icon name="card" size={16} color={onWhite.brand} />
               <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: onWhite.brand }}>{t('attendance.check_in')}</Text>
             </View>
           ) : <Icon name="back" size={18} color="rgba(255,255,255,0.8)" />}
         </View>
+        {/* An online session its teacher has not opened yet — said in place of the door's check-in. */}
+        {waiting ? <WaitsForTeacherLine session={s} now={now} onColor style={{ marginTop: spacing.md }} /> : null}
         {/* «الحصة أونلاين دلوقتي — ادخل»: only while the class is on air; attendance records itself. */}
         {isRemoteLive(s.remote) ? <StudentRemoteJoin sessionId={s.id} remote={s.remote} onColor style={{ marginTop: spacing.md }} /> : null}
       </LinearGradient>
