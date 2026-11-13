@@ -45,6 +45,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { InAppNoticeHost } from '@/notifications/InAppNoticeHost';
 import { ChatNoticeBridge } from '@/notifications/ChatNoticeBridge';
 import { useAuthStore } from '@/stores/authStore';
+import { useAppConfigStore } from '@/stores/appConfigStore';
 import { useDriverStore } from '@/stores/driverStore';
 import { useThemeStore } from '@/stores/themeStore';
 import { ImpersonationBanner } from '@/components/ImpersonationBanner';
@@ -176,6 +177,8 @@ function HydrationGate({ children }: { children: React.ReactNode }) {
       setHydrationStarted(true);
       hydrate();
       useDriverStore.getState().hydrate().catch(() => {});
+      // The last known feature switches, read before the first screen draws (one local read).
+      void useAppConfigStore.getState().hydrate();
     }
   }, [hydrate, hydrationStarted]);
 
@@ -207,7 +210,11 @@ function HydrationGate({ children }: { children: React.ReactNode }) {
   // driver from it): a teacher, parent or student never waits for it at launch (2026-10-19
   // staging audit — one more Keystore read on the first-paint path for everyone).
   const driverReady = useDriverStore((s) => s.hydrated) || isAuthenticated;
-  const ready = !isLoading && themeReady && driverReady;
+  // …and the last known feature switches: drawn on the bundled defaults first, every flagged
+  // feature popped in a moment later (founder 2026-11-13: «it takes a split second to show
+  // features, like it was loading»). One AsyncStorage read; the five-second fallback still holds.
+  const configReady = useAppConfigStore((s) => s.hydrated);
+  const ready = !isLoading && themeReady && driverReady && configReady;
   useEffect(() => {
     if (ready) SplashScreen.hideAsync().catch(() => {});
   }, [ready]);
@@ -228,7 +235,7 @@ function HydrationGate({ children }: { children: React.ReactNode }) {
   // a bare spinner page between the splash and Home (founder 2026-10-19: «a blank moment
   // when I first open the app»). The same logo, size and colours as the native splash
   // (app.config.ts → expo-splash-screen), following the phone as it does: no seam.
-  if (isLoading || !themeReady || !driverReady) {
+  if (!ready) {
     const dark = system === 'dark';
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: dark ? SPLASH_DARK_BG : SPLASH_LIGHT_BG }}>

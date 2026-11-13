@@ -114,19 +114,34 @@ function storage(): { getItem: (k: string) => Promise<string | null>; setItem: (
 /** The last server payload applied by setConfig, as sent (the cache write and the no-op check). */
 let lastServerRaw: string | null = null;
 let lastApplied: AppConfigPayload | null = null;
+/** The one disk read of the cached config (hydrate), and the longest the first screen waits for it. */
+const HYDRATE_WAIT_MS = 1500;
+let hydrating: Promise<void> | null = null;
 
 export const useAppConfigStore = create<State>((set, get) => ({
   config: CONFIG_DEFAULTS,
   hydrated: false,
-  hydrate: async () => {
-    try {
-      const raw = await storage()?.getItem(CACHE_KEY);
-      if (raw) set({ config: mergeConfig(JSON.parse(raw)) });
-    } catch {
-      // No cache / bad JSON — stay on bundled defaults.
-    } finally {
-      set({ hydrated: true });
-    }
+  // Once per run: the root's splash gate starts it (so the first screen already draws the last
+  // known flags — founder 2026-11-13: «it takes a split second to show the features») and
+  // AppConfigGate awaits the same read before its first sync. A second read could overwrite a
+  // fresher server answer with the disk copy.
+  hydrate: () => {
+    hydrating ??= (async () => {
+      try {
+        // Never hold the first screen on a slow disk: past HYDRATE_WAIT_MS it draws on defaults.
+        const raw = await Promise.race([
+          storage()?.getItem(CACHE_KEY) ?? Promise.resolve(null),
+          new Promise<null>((resolve) => setTimeout(() => resolve(null), HYDRATE_WAIT_MS)),
+        ]);
+        // A server answer that landed first wins over the disk copy.
+        if (raw && !get().hydrated) set({ config: mergeConfig(JSON.parse(raw)) });
+      } catch {
+        // No cache / bad JSON — stay on bundled defaults.
+      } finally {
+        if (!get().hydrated) set({ hydrated: true });
+      }
+    })();
+    return hydrating;
   },
   setConfig: (server) => {
     // The same answer as last time (the usual case): nothing to set, nothing to write.

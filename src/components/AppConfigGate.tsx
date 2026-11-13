@@ -93,9 +93,9 @@ export function AppConfigGate({ children }: { children: React.ReactNode }) {
       // A fix downloaded earlier is applied now, if the person was really away — a restart
       // on return from a two-minute absence interrupts nothing (src/updates/otaUpdates.ts).
       void reloadIfReady(away).then((reloaded) => { if (reloaded) return; });
-      // Per-user flags on every return, coalesced to once a minute (a beta the super-admin
-      // just opened shows up without a relaunch; founder 2026-10-09: «light on all devices»).
-      void syncAppConfigOnForeground();
+      // Per-user flags on return: always after a real absence, otherwise at most every five
+      // minutes (src/stores/appConfigSync.ts; founder 2026-10-09: «light on all devices»).
+      void syncAppConfigOnForeground(Date.now(), away);
       // An OTA check is a manifest fetch and, when one is waiting, a full bundle
       // download. Firing it on EVERY resume meant a teacher who switches apps twenty
       // times during a session paid for twenty of them. A release is not published

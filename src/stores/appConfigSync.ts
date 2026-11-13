@@ -103,38 +103,64 @@ async function fetchAndApply(): Promise<void> {
 
 let inFlight: Promise<void> | null = null;
 let lastSyncStartedAt = 0;
+/** When an answer was last applied — the foreground gap counts from here, not from a try. */
+let lastSyncOkAt = 0;
+/** Someone needs an answer newer than the run in flight (the switchboard moved under it). */
+let rerun = false;
+let retryTimer: ReturnType<typeof setTimeout> | null = null;
+
+/** A failed sync tries once more after this long (founder 2026-11-13, see below). */
+export const SYNC_RETRY_MS = 4000;
 
 /**
- * Fetch /app-config and apply it. Silent no-op on failure (keeps last-good).
+ * Fetch /app-config and apply it. Silent on failure (keeps last-good) — but a failure is
+ * tried ONCE more a few seconds later: the first request after an iPhone wakes the app
+ * often dies with «the network connection was lost», and that one failure used to leave
+ * the old flags in place for the whole five-minute gap (founder 2026-11-13: «when I leave
+ * the app for a while I have to restart it to see the new features»).
  * Call on cold start, after any session change and (throttled) on every app foreground.
  * Single-flight: callers that arrive during a run share it — the run re-fetches by itself
  * if the session changed under it (see fetchAndApply), so the shared result is always for
- * the current person.
+ * the current person. `fresh`: the caller knows the server changed AFTER the run in flight
+ * may have been answered (X-Flags-State) — one more run follows it.
  *
  * Failover recovery: if the request fails while an override is active, the override is
  * dropped and the fetch retried against the bundled URL — so an override that goes dark
  * can never permanently strand the app.
  */
-export function syncAppConfig(): Promise<void> {
-  if (inFlight) return inFlight;
+export function syncAppConfig(opts: { fresh?: boolean; retry?: boolean } = {}): Promise<void> {
+  if (inFlight) {
+    if (opts.fresh) rerun = true;
+    return inFlight;
+  }
+  rerun = false;
+  if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
   lastSyncStartedAt = Date.now();
   inFlight = (async () => {
     await ensureApiBaseHydrated();
+    let ok = false;
     try {
       await fetchAndApply();
+      ok = true;
     } catch {
       if (getApiBaseOverride()) {
         // The adopted override is unreachable — fall back to the bundled URL and retry.
         await setApiBaseOverride(null);
         try {
           await fetchAndApply();
+          ok = true;
         } catch {
-          // Still down — a no-op; the app keeps last-good config on the bundled base.
+          // Still down — the app keeps last-good config on the bundled base.
         }
       }
       // No override → normal offline/down case; keep last-good, never surface.
     }
-  })().finally(() => { inFlight = null; });
+    if (ok) lastSyncOkAt = Date.now();
+    else if (opts.retry !== false) retryTimer = setTimeout(() => { retryTimer = null; void syncAppConfig({ retry: false }); }, SYNC_RETRY_MS);
+  })().finally(() => {
+    inFlight = null;
+    if (rerun) { rerun = false; void syncAppConfig(); }
+  });
   return inFlight;
 }
 
@@ -146,19 +172,27 @@ export function syncAppConfig(): Promise<void> {
  *
  * Five minutes, not one (2026-10-19 staging audit: «the app isn't optimised like
  * production»): every sync replaced the whole config and re-rendered every screen that
- * reads a flag or a surface, ~116 of them across the preloaded tabs. A beta opened for a
- * teacher still lands within five minutes, at once on a sign-in or a teacher switch.
+ * reads a flag or a surface, ~116 of them across the preloaded tabs (since then setConfig
+ * drops an unchanged answer, so a sync that changes nothing re-renders nothing).
+ *
+ * The gap counts from the last sync that ANSWERED, and coming back after a real absence
+ * (AWAY_RESYNC_MS in the background) always asks — once, whatever the gap (founder
+ * 2026-11-13). A quick app switch still costs nothing.
  */
 export const FOREGROUND_CONFIG_GAP_MS = 5 * 60_000;
+export const AWAY_RESYNC_MS = 60_000;
+/** Never two foreground syncs closer than this, answered or not (a server that is down). */
+const FOREGROUND_MIN_SPACING_MS = 20_000;
 
-export function syncAppConfigOnForeground(now: number = Date.now()): Promise<void> | null {
-  if (inFlight || now - lastSyncStartedAt < FOREGROUND_CONFIG_GAP_MS) return null;
+export function syncAppConfigOnForeground(now: number = Date.now(), awayMs = 0): Promise<void> | null {
+  if (inFlight || now - lastSyncStartedAt < FOREGROUND_MIN_SPACING_MS) return null;
+  if (awayMs < AWAY_RESYNC_MS && now - lastSyncOkAt < FOREGROUND_CONFIG_GAP_MS) return null;
   return syncAppConfig();
 }
 
 // The server says its switchboard moved (X-Flags-State): refetch now, whatever the gap.
 // Single-flight, and setConfig's dedupe drops an answer that changed nothing for this person.
-onFlagsStampChange(() => { void syncAppConfig(); });
+onFlagsStampChange(() => { void syncAppConfig({ fresh: true }); });
 
 /**
  * React to the session changing — sign-in, sign-out, entering or leaving impersonation,
@@ -199,4 +233,7 @@ export function watchSessionForConfig(): () => void {
 export function __resetSyncStateForTests(): void {
   inFlight = null;
   lastSyncStartedAt = 0;
+  lastSyncOkAt = 0;
+  rerun = false;
+  if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
 }

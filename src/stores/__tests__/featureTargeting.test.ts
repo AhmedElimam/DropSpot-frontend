@@ -35,7 +35,7 @@ import { mergeConfig, useAppConfigStore, isBetaFeature } from '../appConfigStore
 import { useAuthStore } from '../authStore';
 import {
   syncAppConfig, syncAppConfigOnForeground, watchSessionForConfig, sessionStamp,
-  FOREGROUND_CONFIG_GAP_MS, __resetSyncStateForTests,
+  FOREGROUND_CONFIG_GAP_MS, AWAY_RESYNC_MS, SYNC_RETRY_MS, __resetSyncStateForTests,
 } from '../appConfigSync';
 
 const mockGet = getAppConfig as jest.MockedFunction<typeof getAppConfig>;
@@ -262,6 +262,67 @@ describe('syncAppConfigOnForeground', () => {
     } finally {
       spy.mockRestore();
     }
+  });
+
+  it('back after a real absence it asks, whatever the gap; a quick switch does not', async () => {
+    let now = 2_000_000;
+    const spy = jest.spyOn(Date, 'now').mockImplementation(() => now);
+    try {
+      mockGet.mockResolvedValue(payload({}));
+      await syncAppConfig();
+      now += 30_000;
+      expect(syncAppConfigOnForeground(now, 5_000)).toBeNull();
+      expect(syncAppConfigOnForeground(now, AWAY_RESYNC_MS)).not.toBeNull();
+      await flush();
+      expect(mockGet).toHaveBeenCalledTimes(2);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('a failed sync tries once more a few seconds later, and does not burn the gap', async () => {
+    jest.useFakeTimers();
+    try {
+      mockGet.mockRejectedValueOnce(new Error('The network connection was lost.'));
+      mockGet.mockResolvedValue(payload({ feature_flags: { remote_sessions: true } }));
+      await syncAppConfig();
+      expect(useAppConfigStore.getState().config.feature_flags.remote_sessions).toBeUndefined();
+      jest.advanceTimersByTime(SYNC_RETRY_MS);
+      await flush();
+      expect(mockGet).toHaveBeenCalledTimes(2);
+      expect(useAppConfigStore.getState().config.feature_flags.remote_sessions).toBe(true);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('the retry is one: a second failure waits for the next foreground', async () => {
+    jest.useFakeTimers();
+    try {
+      mockGet.mockRejectedValue(new Error('offline'));
+      await syncAppConfig();
+      jest.advanceTimersByTime(SYNC_RETRY_MS);
+      await flush();
+      jest.advanceTimersByTime(SYNC_RETRY_MS * 3);
+      await flush();
+      expect(mockGet).toHaveBeenCalledTimes(2);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('a switchboard change during a run is followed by one more run (never swallowed)', async () => {
+    let answer: (v: unknown) => void = () => {};
+    mockGet.mockImplementationOnce(() => new Promise((r) => { answer = r as never; }));
+    mockGet.mockResolvedValue(payload({ feature_flags: { remote_sessions: true } }));
+    const first = syncAppConfig();
+    await flush(); // the request is out
+    void syncAppConfig({ fresh: true }); // the stamp moved while the first was out
+    answer(payload({}));
+    await first;
+    await flush();
+    expect(mockGet).toHaveBeenCalledTimes(2);
+    expect(useAppConfigStore.getState().config.feature_flags.remote_sessions).toBe(true);
   });
 
   it('a session change is never throttled (it refetches right away)', async () => {
