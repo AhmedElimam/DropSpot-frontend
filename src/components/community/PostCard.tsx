@@ -1,4 +1,4 @@
-import { memo, useState } from 'react';
+import { memo, useEffect, useId, useState } from 'react';
 import { View, Text, TouchableOpacity, Pressable, useWindowDimensions } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -12,6 +12,7 @@ import type { CommunityMedia, CommunityPost, CommunityReaction, CommunityRole } 
 import { CommunityAvatar } from './CommunityAvatar';
 import { ReactionGlyph, REACTION_TONE } from '@/components/reactions/ReactionGlyph';
 import { ReactionPicker } from '@/components/reactions/ReactionPicker';
+import { closeReactionPicker, markReactionPickerTouch, openReactionPicker, useReactionPicker } from '@/components/reactions/pickerStore';
 import { useSurface } from '@/ui/surfaces';
 
 /** The community's four, drawn in the app's own reaction family (src/components/reactions). */
@@ -56,7 +57,10 @@ export const PostCard = memo(function PostCard({ post, headers, onOpen, onReact,
   const { t } = useTranslation();
   const { width } = useWindowDimensions();
   const [showAll, setShowAll] = useState(expanded);
-  const [picker, setPicker] = useState(false);
+  // One picker open app-wide; a scroll or a touch elsewhere closes it (pickerStore).
+  const pickerKey = useId();
+  const picker = useReactionPicker((s) => s.open === pickerKey);
+  useEffect(() => () => { if (useReactionPicker.getState().open === pickerKey) closeReactionPicker(); }, [pickerKey]);
   const announcement = post.kind === 'announcement';
   const chip = roleLabel(post.author.role, t);
   const status = post.status !== 'published' ? post.status : null;
@@ -173,19 +177,23 @@ export const PostCard = memo(function PostCard({ post, headers, onOpen, onReact,
               preview drawn after it (it used to sit under that preview and swallow no taps). */}
           <View style={{ zIndex: 10 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 6, paddingVertical: 2 }}>
+            {/* The like button's touches belong to the picker it opens: a tap here closes it via
+                onPress, a long press opens it — the list must not close it first. */}
+            <View style={{ flex: 1 }} onTouchStart={(e) => { if (useReactionPicker.getState().open !== pickerKey) closeReactionPicker(); markReactionPickerTouch(e); }}>
             <TouchableOpacity
-              onPress={() => { if (picker) setPicker(false); else onReact(post.id, mine ?? 'like'); }}
-              onLongPress={() => setPicker(true)}
+              onPress={() => { if (picker) closeReactionPicker(); else onReact(post.id, mine ?? 'like'); }}
+              onLongPress={() => openReactionPicker(pickerKey)}
               delayLongPress={220}
               activeOpacity={0.7}
               accessibilityRole="button"
               accessibilityState={{ selected: !!mine }}
               accessibilityLabel={t('community_space.react_like')}
-              style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 42, borderRadius: radius.md }}
+              style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 42, borderRadius: radius.md }}
             >
               {mine ? <ReactionGlyph kind={mine} size={20} /> : <Icon name="like" size={19} color={colors.textSecondary} outline />}
               <Text style={{ fontFamily: fonts.bold, fontSize: 13.5, color: mine ? REACTION_TONE[mine].ink : colors.textSecondary }}>{t(mine ? `community_space.react_${mine}` : 'community_space.like')}</Text>
             </TouchableOpacity>
+            </View>
             <TouchableOpacity onPress={comments} disabled={!onOpen && !onComments} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('community_space.comment')}
               style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 42, borderRadius: radius.md }}>
               <Icon name="chat" size={19} color={colors.textSecondary} outline />
@@ -206,7 +214,7 @@ export const PostCard = memo(function PostCard({ post, headers, onOpen, onReact,
               kinds={offered}
               mine={mine}
               label={(k) => t(`community_space.react_${k}`)}
-              onPick={(k) => { setPicker(false); onReact(post.id, k as CommunityReaction); }}
+              onPick={(k) => { closeReactionPicker(); onReact(post.id, k as CommunityReaction); }}
               style={{ position: 'absolute', bottom: 44, start: PAD, zIndex: 20 }}
             />
           ) : null}

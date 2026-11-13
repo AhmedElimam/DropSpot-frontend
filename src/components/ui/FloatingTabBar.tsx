@@ -14,9 +14,13 @@ import { Icon, type IconName } from '@/components/ui/Icon';
 import { TourTarget } from '@/tour/TourTarget';
 import { CountBadge } from '@/components/ui/CountBadge';
 
-/** The pill's own height; it floats `GAP` above the home indicator. Screens pad with `nav.bottomHeight`. */
+/**
+ * The pill's own height; it floats `GAP` above the system's bottom inset (the home indicator).
+ * Screens pad with `nav.bottomHeight`. GAP was 10 until founder 2026-11-13: «push it down just a
+ * little bit» — the pill now rests on the inset's top line (an iPhone: 34 pt off the edge, was 44).
+ */
 export const PILL_HEIGHT = 62;
-export const GAP = 10;
+export const GAP = 0;
 export const SIDE = 14;
 /** How far the centre button rises above the pill's top edge. */
 export const RAISE = 20;

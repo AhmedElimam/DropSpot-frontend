@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import Animated, { Extrapolation, interpolate, runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import { reportListScroll, showTabBar } from '@/navigation/tabBarScroll';
+import { closeReactionPicker, reactionPickerOutsideTouch } from '@/components/reactions/pickerStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, shadows } from '@/theme/index';
 
@@ -58,16 +59,24 @@ function withFloatingRefresh<C extends ComponentType<any>>(Base: C): C {
     // too (it used to report only from the iOS pull-to-refresh path, so elsewhere the bar never
     // followed the scroll). A list that just appeared starts with the bar in view.
     const vertical = !props.horizontal;
-    const { onScroll } = props;
+    const { onScroll, onTouchStart } = props;
     const scroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
       const m = e.nativeEvent;
       reportListScroll(m.contentOffset.y, m.contentSize.height, m.layoutMeasurement.height);
+      // An open reaction picker goes away once the page moves (src/components/reactions/pickerStore.ts).
+      closeReactionPicker();
       (onScroll as ((ev: NativeSyntheticEvent<NativeScrollEvent>) => void) | undefined)?.(e);
     }, [onScroll]);
+    // …and on a touch anywhere in the list but the picker itself. Observes only, claims nothing.
+    const touchStart = useCallback((e: GestureResponderEvent) => {
+      reactionPickerOutsideTouch(e);
+      onTouchStart?.(e);
+    }, [onTouchStart]);
     useEffect(() => { if (vertical) showTabBar(); }, [vertical]);
     if (vertical) {
       props.onScroll = scroll;
       props.scrollEventThrottle = props.scrollEventThrottle ?? 32;
+      props.onTouchStart = touchStart;
     }
     if (Platform.OS !== 'ios' || !props.refreshControl) {
       const B = Base as ComponentType<any>;
