@@ -1,4 +1,5 @@
-import { forwardRef, useCallback, useEffect, useRef, type ComponentType, type ReactElement } from 'react';
+import { forwardRef, useCallback, useContext, useEffect, useRef, type ComponentType, type ReactElement } from 'react';
+import { NavigationContext } from '@react-navigation/native';
 import {
   ActivityIndicator,
   FlatList as RNFlatList,
@@ -50,29 +51,42 @@ type ScrollLikeProps = {
  * and only import ScrollView / FlatList / SectionList from here instead of react-native.
  * Without a refreshControl these are the plain React Native components.
  */
+/** Is this list on a tab page (the navigator right above it is the tab bar's)? */
+export function onTabPage(navigation: { getState?: () => { type?: string } | undefined } | undefined): boolean {
+  try {
+    return navigation?.getState?.()?.type === 'tab';
+  } catch {
+    return false;
+  }
+}
+
 function withFloatingRefresh<C extends ComponentType<any>>(Base: C): C {
   const Wrapped = forwardRef<unknown, ScrollLikeProps>((given, ref) => {
     // No scroll bars: a native app, not a web page (founder 2026-10-04). A screen can still
     // ask for one explicitly.
     const props: ScrollLikeProps = { showsVerticalScrollIndicator: false, showsHorizontalScrollIndicator: false, ...given };
-    // Every vertical list drives the floating tab bar — on Android and without a refresh control
-    // too (it used to report only from the iOS pull-to-refresh path, so elsewhere the bar never
-    // followed the scroll). A list that just appeared starts with the bar in view.
+    // Every vertical list ON A TAB PAGE drives the floating tab bar — on Android and without a
+    // refresh control too (it used to report only from the iOS pull-to-refresh path, so elsewhere
+    // the bar never followed the scroll). A list that just appeared starts with the bar in view.
+    // A page pushed over the tabs (مكتب مدام روز, التحصيلات المعلّقة…) has no bar of its own: its
+    // scroll used to hide Home's bar, and back on Home it stayed gone (founder 2026-11-13).
     const vertical = !props.horizontal;
+    const navigation = useContext(NavigationContext);
+    const drivesBar = vertical && onTabPage(navigation);
     const { onScroll, onTouchStart } = props;
     const scroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
       const m = e.nativeEvent;
-      reportListScroll(m.contentOffset.y, m.contentSize.height, m.layoutMeasurement.height);
+      if (drivesBar) reportListScroll(m.contentOffset.y, m.contentSize.height, m.layoutMeasurement.height);
       // An open reaction picker goes away once the page moves (src/components/reactions/pickerStore.ts).
       closeReactionPicker();
       (onScroll as ((ev: NativeSyntheticEvent<NativeScrollEvent>) => void) | undefined)?.(e);
-    }, [onScroll]);
+    }, [onScroll, drivesBar]);
     // …and on a touch anywhere in the list but the picker itself. Observes only, claims nothing.
     const touchStart = useCallback((e: GestureResponderEvent) => {
       reactionPickerOutsideTouch(e);
       onTouchStart?.(e);
     }, [onTouchStart]);
-    useEffect(() => { if (vertical) showTabBar(); }, [vertical]);
+    useEffect(() => { if (drivesBar) showTabBar(); }, [drivesBar]);
     if (vertical) {
       props.onScroll = scroll;
       props.scrollEventThrottle = props.scrollEventThrottle ?? 32;
