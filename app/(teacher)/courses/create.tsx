@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity, Keyboard } from 'react-native';
 import { Alert } from '@/ui/dialog';
 import { router, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -8,7 +8,9 @@ import { formatMoney } from '@/utils/currency';
 import { colors, spacing, radius } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { Button } from '@/components/ui/Button';
-import { TimePicker } from '@/components/ui/TimePicker';
+import { TimePicker, formatTime12 } from '@/components/ui/TimePicker';
+import { FormToast, type FormToastMessage } from '@/components/ui/FormToast';
+import { courseCreateProblems, TIME_RE, type CourseCreateProblem, type CourseCreateSlot } from '@/utils/courseCreateCheck';
 import { SelectField } from '@/components/ui/SelectField';
 import { FormScreen, FormCard, Field, Input, NumberInput, Chips, DayPicker, Stepper, SwitchRow, Banner, DateStrip, TimeRangeRow, upcomingDays } from '@/components/ui/Form';
 import { useCourseFormOptions, useCreateCourse } from '@/hooks/useCourses';
@@ -16,8 +18,7 @@ import { useTeacherOnboarding, useMarkOnboardingStep } from '@/hooks/useTeacherO
 import { formatNumber } from '@/utils/format';
 import { Surface } from '@/ui/surfaces';
 
-const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
-type Slot = { day_of_week: number; start_time: string; end_time: string };
+type Slot = CourseCreateSlot;
 
 /**
  * Create a course — parity with the web /courses/create: name, grade, venue, term, start,
@@ -88,17 +89,31 @@ export default function CourseCreateScreen() {
     }
   }, [explainerDue]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const slotsValid = slots.every((s) => TIME_RE.test(s.start_time) && TIME_RE.test(s.end_time) && s.end_time > s.start_time);
-  const billingValid = parseFloat(cyclePrice) >= 1 && parseInt(cycleSessions, 10) >= 1;
-  const startValid = startMode === 'now' || !!startDate;
-  const canSubmit = name.trim().length > 0 && !!gradeId && !!termId && slotsValid && billingValid && startValid && !create.isPending;
+  // The button stays active; a press with something missing says WHAT (founder 2026-11-14: the
+  // disabled button gave no reason — usually a slot saved 10 PM → 11 AM by the مساءً default).
+  const [toast, setToast] = useState<FormToastMessage | null>(null);
+  const problemLine = (p: CourseCreateProblem): string => {
+    if (p.kind !== 'slot') return t(`teacher.create_missing_${p.kind}`);
+    const n = formatNumber(p.index + 1);
+    if (p.reason === 'time_missing') return t('teacher.create_missing_slot_time', { n });
+    const s = slots[p.index];
+    return t('teacher.create_missing_slot_order', { n, start: formatTime12(s?.start_time), end: formatTime12(s?.end_time) });
+  };
 
   const addSlot = () => setSlots((s) => [...s, { day_of_week: 6, start_time: '16:00', end_time: '18:00' }]);
   const removeSlot = (i: number) => setSlots((s) => s.filter((_, idx) => idx !== i));
   const setSlot = (i: number, patch: Partial<Slot>) => setSlots((s) => s.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
 
   const submit = () => {
-    if (!canSubmit || !gradeId || !termId) return;
+    if (create.isPending) return;
+    const problems = courseCreateProblems({ name, gradeId, termId, startMode, startDate, slots, cycleSessions, cyclePrice, capacity });
+    if (problems.length || !gradeId || !termId) {
+      // The note floats at the bottom: an open keyboard would sit on top of it.
+      Keyboard.dismiss();
+      setToast((prev) => ({ title: t('teacher.create_missing_title'), lines: problems.map(problemLine), seq: (prev?.seq ?? 0) + 1 }));
+      return;
+    }
+    setToast(null);
     create.mutate(
       {
         name: name.trim(),
@@ -138,6 +153,7 @@ export default function CourseCreateScreen() {
 
   return (
     <Surface id="screen.teacher.courses.create" screen>
+    <View style={{ flex: 1 }}>
     <FormScreen title={t('teacher.create_course')} subtitle={t('teacher.create_course_sub')} loading={isLoading || !options}>
       {options ? (
         <>
@@ -297,10 +313,12 @@ export default function CourseCreateScreen() {
           </FormCard>
           </Surface>
 
-          <Surface id="teacher.course_create.submit_button"><Button title={t('teacher.create_course')} onPress={submit} loading={create.isPending} disabled={!canSubmit} variant="primary" /></Surface>
+          <Surface id="teacher.course_create.submit_button"><Button title={t('teacher.create_course')} onPress={submit} loading={create.isPending} disabled={create.isPending} variant="primary" /></Surface>
         </>
       ) : null}
     </FormScreen>
+    <FormToast message={toast} onHide={() => setToast(null)} />
+    </View>
     </Surface>
   );
 }
