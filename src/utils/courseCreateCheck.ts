@@ -39,6 +39,8 @@ export type CourseCreateProblem =
   | { kind: 'start_date' }
   /** `index` is 0-based; `reason` says which half is wrong. */
   | { kind: 'slot'; index: number; reason: 'time_missing' | 'end_not_after_start' }
+  /** Two of the form's own slots on the same day overlap (the server refuses it too). */
+  | { kind: 'slot_overlap'; index: number; other: number }
   | { kind: 'cycle_sessions' }
   | { kind: 'cycle_price' }
   | { kind: 'capacity' }
@@ -51,9 +53,16 @@ export function courseCreateProblems(f: CourseCreateInput): CourseCreateProblem[
   if (!f.termId) out.push({ kind: 'term' });
   if (f.startMode === 'date' && !f.startDate) out.push({ kind: 'start_date' });
   if (f.slots.length > MAX_SLOTS) out.push({ kind: 'slots_count' });
+  const sound: number[] = [];
   f.slots.forEach((s, index) => {
     if (!TIME_RE.test(s.start_time) || !TIME_RE.test(s.end_time)) out.push({ kind: 'slot', index, reason: 'time_missing' });
     else if (s.end_time <= s.start_time) out.push({ kind: 'slot', index, reason: 'end_not_after_start' });
+    else {
+      // Half-open, as the server counts: 5–7 and 7–8 do not overlap.
+      const other = sound.find((j) => f.slots[j].day_of_week === s.day_of_week && s.start_time < f.slots[j].end_time && f.slots[j].start_time < s.end_time);
+      if (other !== undefined) out.push({ kind: 'slot_overlap', index, other });
+      sound.push(index);
+    }
   });
   const sessions = parseInt(f.cycleSessions, 10);
   if (!(sessions >= MIN_CYCLE_SESSIONS && sessions <= MAX_CYCLE_SESSIONS)) out.push({ kind: 'cycle_sessions' });

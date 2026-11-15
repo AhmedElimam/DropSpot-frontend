@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/Button';
 import { TimePicker, formatTime12 } from '@/components/ui/TimePicker';
 import { FormToast, type FormToastMessage } from '@/components/ui/FormToast';
 import { courseCreateProblems, TIME_RE, type CourseCreateProblem, type CourseCreateSlot } from '@/utils/courseCreateCheck';
+import { conflictingSlotIndexes, isScheduleConflict, scheduleConflicts, type ScheduleConflict } from '@/utils/scheduleConflicts';
 import { SelectField } from '@/components/ui/SelectField';
 import { FormScreen, FormCard, Field, Input, NumberInput, Chips, DayPicker, Stepper, SwitchRow, Banner, DateStrip, TimeRangeRow, upcomingDays } from '@/components/ui/Form';
 import { useCourseFormOptions, useCreateCourse } from '@/hooks/useCourses';
@@ -92,7 +93,27 @@ export default function CourseCreateScreen() {
   // The button stays active; a press with something missing says WHAT (founder 2026-11-14: the
   // disabled button gave no reason — usually a slot saved 10 PM → 11 AM by the مساءً default).
   const [toast, setToast] = useState<FormToastMessage | null>(null);
+  // The server's refusal of a time clash, per slot of the form (founder 2026-11-15: «show with
+  // which»). Any change to the slots clears it — it described the slots as they were sent.
+  const [conflicts, setConflicts] = useState<ScheduleConflict[]>([]);
+  useEffect(() => { setConflicts([]); }, [slots]);
+  const conflictSlots = conflictingSlotIndexes(conflicts);
+  const range = (a: string, b: string) => `${formatTime12(a)}–${formatTime12(b)}`;
+  const conflictLine = (c: ScheduleConflict): string => {
+    const n = formatNumber((c.slot_index ?? 0) + 1);
+    if (c.with.kind === 'same_request') return t('teacher.create_conflict_same', { n, m: formatNumber((c.with.slot_index ?? 0) + 1), day: c.day_label });
+    return t('teacher.create_conflict_course', { n, day: c.day_label, mine: range(c.start_time, c.end_time), course: c.with.course_name ?? '', theirs: range(c.with.start_time, c.with.end_time) });
+  };
+  /** Under a slot card: what it collides with. */
+  const slotNotes = (i: number): string[] => conflicts.flatMap((c) => {
+    if (c.slot_index === i) return [c.with.kind === 'same_request'
+      ? t('teacher.slot_conflict_same', { m: formatNumber((c.with.slot_index ?? 0) + 1) })
+      : t('teacher.slot_conflict_course', { course: c.with.course_name ?? '', theirs: range(c.with.start_time, c.with.end_time) })];
+    if (c.with.kind === 'same_request' && c.with.slot_index === i) return [t('teacher.slot_conflict_same', { m: formatNumber((c.slot_index ?? 0) + 1) })];
+    return [];
+  });
   const problemLine = (p: CourseCreateProblem): string => {
+    if (p.kind === 'slot_overlap') return t('teacher.create_missing_slot_overlap', { n: formatNumber(p.index + 1), m: formatNumber(p.other + 1) });
     if (p.kind !== 'slot') return t(`teacher.create_missing_${p.kind}`);
     const n = formatNumber(p.index + 1);
     if (p.reason === 'time_missing') return t('teacher.create_missing_slot_time', { n });
@@ -144,7 +165,20 @@ export default function CourseCreateScreen() {
             : (res.term_ended ? t('teacher.create_term_ended') : t('teacher.create_done', { count: res.generated }));
           Alert.alert(title, body, [{ text: sessionsDue ? t('onboarding.view_course') : t('common.ok'), onPress: () => router.replace(`/(teacher)/courses/${res.course.id}` as Href) }]);
         },
-        onError: (e: any) => Alert.alert(t('common.error'), e?.response?.data?.message ?? t('teacher.create_failed')),
+        onError: (e: any) => {
+          if (isScheduleConflict(e)) {
+            const list = scheduleConflicts(e);
+            setConflicts(list);
+            setToast((prev) => ({
+              title: t('teacher.create_conflict_title'),
+              // An older server lists nothing: its own sentence (which names the first clash) instead.
+              lines: list.length ? list.map(conflictLine) : [String(e?.response?.data?.message ?? t('teacher.create_failed'))],
+              seq: (prev?.seq ?? 0) + 1,
+            }));
+            return;
+          }
+          Alert.alert(t('common.error'), e?.response?.data?.message ?? t('teacher.create_failed'));
+        },
       },
     );
   };
@@ -228,8 +262,9 @@ export default function CourseCreateScreen() {
             ) : (
               slots.map((row, i) => {
                 const bad = TIME_RE.test(row.start_time) && TIME_RE.test(row.end_time) && row.end_time <= row.start_time;
+                const notes = conflictSlots.has(i) ? slotNotes(i) : [];
                 return (
-                  <View key={i} style={{ backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, borderWidth: 1, borderColor: bad ? colors.danger : colors.border, padding: spacing.md, marginBottom: spacing.sm }}>
+                  <View key={i} style={{ backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, borderWidth: 1, borderColor: bad || notes.length ? colors.danger : colors.border, padding: spacing.md, marginBottom: spacing.sm }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm }}>
                       <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary }}>{t('form_ui.slot_n', { n: formatNumber(i + 1) })}</Text>
                       <TouchableOpacity onPress={() => removeSlot(i)} hitSlop={8} accessibilityLabel={t('form_ui.remove')} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
@@ -245,6 +280,12 @@ export default function CourseCreateScreen() {
                         <View style={{ flex: 1 }}><TimePicker value={row.end_time || null} onChange={(v) => setSlot(i, { end_time: v })} invalid={bad} /></View>
                       </TimeRangeRow>
                     </View>
+                    {notes.map((note, k) => (
+                      <View key={k} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 6, marginTop: spacing.sm }}>
+                        <Icon name="warning" size={14} color={colors.dangerText} />
+                        <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 12.5, lineHeight: 19, color: colors.dangerText }}>{note}</Text>
+                      </View>
+                    ))}
                   </View>
                 );
               })

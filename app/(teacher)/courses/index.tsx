@@ -1,5 +1,5 @@
 import { memo, useMemo, useState } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import { FlatList } from '@/components/ui/Refreshable';
 import { router, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -17,6 +17,7 @@ import { Surface } from '@/ui/surfaces';
 import type { CourseSummary } from '@/api/courses';
 import { useShiftSettingsStore } from '@/stores/shiftSettingsStore';
 import { formatTime12 } from '@/components/ui/TimePicker';
+import { courseSearchScore } from '@/utils/courseSearch';
 
 function Meta({ icon, label, color = colors.textSecondary }: { icon: IconName; label: string; color?: string }) {
   return (
@@ -102,10 +103,20 @@ export default function TeacherCourses() {
   const morningCount = useMemo(() => all.filter((c) => c.shift === 'morning').length, [all]);
   const eveningCount = useMemo(() => all.filter((c) => c.shift === 'evening').length, [all]);
   const hasShifts = !!shiftSettings?.enabled && all.length > 0;
+  // Smart search (founder 2026-11-15): the students tab's Arabic folding over the name, grade,
+  // days and times, period and kind — every word typed must match, best matches first.
+  const [query, setQuery] = useState('');
   const list = useMemo(() => {
     const byKind = !mixed || kind === 'all' ? all : all.filter((c) => (c.tracks_attendance === false) === (kind === 'private'));
-    return !hasShifts || shift === 'all' ? byKind : byKind.filter((c) => c.shift === shift);
-  }, [all, kind, mixed, shift, hasShifts]);
+    const byShift = !hasShifts || shift === 'all' ? byKind : byKind.filter((c) => c.shift === shift);
+    if (!query.trim()) return byShift;
+    const words = { private: t('course_ui.private_label'), hidden: t('course_ui.hidden_chip'), noLocation: t('teacher.location_missing') };
+    return byShift
+      .map((c) => ({ c, score: courseSearchScore(c, query, words) }))
+      .filter((x) => x.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .map((x) => x.c);
+  }, [all, kind, mixed, shift, hasShifts, query, t]);
   const shifts: ChipOption<ShiftFilter>[] = [
     { key: 'all', label: t('course_shift.filter_all') },
     { key: 'morning', label: t('course_shift.filter_morning', { n: formatNumber(morningCount) }) },
@@ -131,6 +142,23 @@ export default function TeacherCourses() {
         <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xxl }} />
       ) : (
         <>
+        {all.length > 0 ? (
+          <Surface id="teacher.courses.search">
+          <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, paddingHorizontal: spacing.md, marginHorizontal: spacing.lg, marginTop: spacing.sm }}>
+            <Icon name="search" size={17} color={colors.textTertiary} />
+            <TextInput
+              value={query}
+              onChangeText={setQuery}
+              placeholder={t('teacher.courses_search_ph')}
+              placeholderTextColor={colors.textTertiary}
+              returnKeyType="search"
+              autoCorrect={false}
+              style={{ flex: 1, height: 42, marginStart: spacing.sm, fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, textAlign: 'right', paddingVertical: 0 }}
+            />
+            {query ? <TouchableOpacity onPress={() => setQuery('')} hitSlop={8} accessibilityLabel={t('app_search.clear')}><Icon name="close" size={16} color={colors.textTertiary} /></TouchableOpacity> : null}
+          </View>
+          </Surface>
+        ) : null}
         {mixed ? <Surface id="teacher.courses.filter_kind"><FilterChips options={kinds} value={kind} onChange={setKind} /></Surface> : null}
         {hasShifts ? <Surface id="teacher.courses.filter_shift"><FilterChips options={shifts} value={shift} onChange={setShift} /></Surface> : null}
         <Surface id="teacher.courses.shift_settings" assistantNeeds="teacher">
@@ -158,7 +186,11 @@ export default function TeacherCourses() {
           removeClippedSubviews initialNumToRender={8} maxToRenderPerBatch={8} windowSize={7}
           contentContainerStyle={{ flexGrow: 1, padding: spacing.lg, paddingBottom: nav.pageEnd + insets.bottom + spacing.lg }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
-          ListEmptyComponent={<EmptyState icon="book" title={t('teacher.courses_empty_title')} message={t('teacher.courses_empty_hint')} />}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          ListEmptyComponent={query.trim() && all.length > 0
+            ? <EmptyState icon="search" title={t('teacher.courses_search_empty', { q: query.trim() })} message={t('teacher.courses_search_empty_hint')} />
+            : <EmptyState icon="book" title={t('teacher.courses_empty_title')} message={t('teacher.courses_empty_hint')} />}
         />
         </Surface>
         </>
