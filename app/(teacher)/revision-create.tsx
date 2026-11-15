@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import { View, Text } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import { Alert } from '@/ui/dialog';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fonts } from '@/theme/typography';
-import { colors, spacing } from '@/theme/index';
+import { colors, spacing, radius } from '@/theme/index';
+import { Icon } from '@/components/ui/Icon';
 import { TimePicker } from '@/components/ui/TimePicker';
 import { Button } from '@/components/ui/Button';
 import { Surface } from '@/ui/surfaces';
@@ -13,6 +14,10 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { FormScreen, FormCard, Field, Input, NumberInput, Chips, DayPicker, OptionRow, SwitchRow, DateField, TimeRangeRow } from '@/components/ui/Form';
 import { SelectField } from '@/components/ui/SelectField';
 import { getRevisionCreateOptions, createRevision, type BillingMode } from '@/api/revisions';
+
+/** The picker's two non-venue choices. Venue ids are numbers as strings, so these never collide. */
+const NO_VENUE = '';
+const OTHER_VENUE = 'other';
 
 const DURATIONS = [{ m: 60, l: 'ساعة' }, { m: 90, l: 'ساعة ونصف' }, { m: 120, l: 'ساعتان' }, { m: 180, l: '3 ساعات' }, { m: 240, l: '4 ساعات' }, { m: 300, l: '5 ساعات' }];
 
@@ -50,6 +55,14 @@ export default function RevisionCreate() {
   const [end, setEnd] = useState('');          // recurring end HH:mm
   const [duration, setDuration] = useState(60);
   const [location, setLocation] = useState('');
+  // «المكان» is a picker over the teacher's venues (founder 2026-11-15): none, a venue, or
+  // «مكان آخر» which opens the text box for a one-off hall. An older server sends no venues:
+  // the text box alone, as before. The revision stores the place as its name either way.
+  const venues = options?.venues ?? null;
+  const [venueKey, setVenueKey] = useState<string>(NO_VENUE);
+  const placeText = venues === null || venueKey === OTHER_VENUE
+    ? location.trim()
+    : (venues.find((v) => v.id === venueKey)?.name ?? '');
   const [notify, setNotify] = useState(true);
   const [busy, setBusy] = useState(false);
   const [source, setSource] = useState<'groups' | 'custom'>('groups');
@@ -82,7 +95,7 @@ export default function RevisionCreate() {
         course_ids: custom ? [] : members, is_recurring: recurring,
         day_of_week: recurring ? day : null, start_time: recurring ? start : null, end_time: recurring ? (end || null) : null,
         one_time_at: !recurring ? `${date} ${otTime}` : null,
-        duration_minutes: duration || 60, location: location.trim() || null, notify_students: notify,
+        duration_minutes: duration || 60, location: placeText || null, notify_students: notify,
       });
       qc.invalidateQueries({ queryKey: ['revisions'] });
       Alert.alert(t('revision_create.done'), res.title, [{ text: t('common.ok'), onPress: () => router.back() }]);
@@ -202,7 +215,36 @@ export default function RevisionCreate() {
             </Surface>
             <Surface id="teacher.revision_create.timing.location">
             <Field label={t('revision_create.location')} hint={t('form_ui.optional')}>
-              <Input value={location} onChangeText={setLocation} placeholder={t('teacher.optional')} maxLength={120} />
+              {venues === null ? (
+                <Input value={location} onChangeText={setLocation} placeholder={t('teacher.optional')} maxLength={120} />
+              ) : (
+                <>
+                  <SelectField
+                    value={venueKey}
+                    placeholder={t('enroll_ui.no_venue')}
+                    options={[
+                      { key: NO_VENUE, label: t('enroll_ui.no_venue') },
+                      ...venues.map((v) => ({ key: v.id, label: v.address ? `${v.name} — ${v.address}` : v.name })),
+                      { key: OTHER_VENUE, label: t('revision_create.venue_other') },
+                    ]}
+                    onChange={setVenueKey}
+                  />
+                  {venueKey === OTHER_VENUE ? (
+                    <View style={{ marginTop: spacing.sm }}>
+                      <Input value={location} onChangeText={setLocation} placeholder={t('revision_create.venue_other_ph')} maxLength={120} autoFocus />
+                    </View>
+                  ) : null}
+                  {venues.length === 0 ? (
+                    <Surface id="teacher.revision_create.timing.location.add_venues" assistantNeeds="teacher">
+                    <TouchableOpacity onPress={() => router.push('/(teacher)/venues' as Href)} activeOpacity={0.8} accessibilityRole="button"
+                      style={{ marginTop: spacing.sm, minHeight: 44, borderRadius: radius.lg, borderWidth: 1, borderStyle: 'dashed', borderColor: colors.brand, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: spacing.sm, backgroundColor: colors.brandTint }}>
+                      <Icon name="add" size={16} color={colors.brand} />
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 13.5, color: colors.brand }}>{t('enroll_ui.add_venues_first')}</Text>
+                    </TouchableOpacity>
+                    </Surface>
+                  ) : null}
+                </>
+              )}
             </Field>
             </Surface>
           </FormCard>

@@ -55,12 +55,15 @@ export interface RevisionCreateOptions {
   all_grades: { grade_id: number; grade_name: string }[];
   /** The academic years, newest first; `is_current` is the default. */
   terms: { id: number; name: string; is_current: boolean }[];
+  /** The teacher's venues for the «المكان» picker (an assistant: only theirs). NULL = an older
+   *  server that sends none — the form keeps its text box. */
+  venues: { id: string; name: string; address: string | null }[] | null;
 }
 
 export async function getRevisionCreateOptions(): Promise<RevisionCreateOptions> {
   const { data } = await client.get('/revisions/create-options');
   const d = data.data ?? data;
-  return { grades: d?.grades ?? [], all_grades: d?.all_grades ?? [], terms: d?.terms ?? [] };
+  return { grades: d?.grades ?? [], all_grades: d?.all_grades ?? [], terms: d?.terms ?? [], venues: Array.isArray(d?.venues) ? d.venues : null };
 }
 
 export interface CreateRevisionPayload {
