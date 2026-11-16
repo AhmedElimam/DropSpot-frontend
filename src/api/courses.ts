@@ -172,6 +172,19 @@ export interface CreateCoursePayload {
   cycle_price?: number | null;
   booklet_price?: number | null;
   booking_price?: number | null;
+  /** Ask the server whether the name names another grade (422 GRADE_NAME_MISMATCH). */
+  grade_check?: boolean;
+  /** The teacher saw that warning and keeps the chosen grade. */
+  accept_grade_name?: boolean;
+}
+
+/** What the server says when a course name names another grade than the chosen one. */
+export interface GradeNameMismatch {
+  name_says: string;
+  chosen_grade_id: string;
+  chosen_grade_name: string;
+  suggested_grade_id: string | null;
+  suggested_grade_name: string | null;
 }
 
 export interface CreateCourseResult {
