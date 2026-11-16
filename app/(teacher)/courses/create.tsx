@@ -15,6 +15,7 @@ import { conflictingSlotIndexes, isScheduleConflict, scheduleConflicts, type Sch
 import { SelectField } from '@/components/ui/SelectField';
 import { FormScreen, FormCard, Field, Input, NumberInput, Chips, DayPicker, Stepper, SwitchRow, Banner, DateStrip, TimeRangeRow, upcomingDays } from '@/components/ui/Form';
 import { useCourseFormOptions, useCreateCourse } from '@/hooks/useCourses';
+import type { GradeNameMismatch } from '@/api/courses';
 import { useTeacherOnboarding, useMarkOnboardingStep } from '@/hooks/useTeacherOnboarding';
 import { formatNumber } from '@/utils/format';
 import { Surface } from '@/ui/surfaces';
@@ -125,7 +126,8 @@ export default function CourseCreateScreen() {
   const removeSlot = (i: number) => setSlots((s) => s.filter((_, idx) => idx !== i));
   const setSlot = (i: number, patch: Partial<Slot>) => setSlots((s) => s.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
 
-  const submit = () => {
+  /** `gradeOverride` / `acceptGradeName`: the answer to «the name says another grade» (below). */
+  const submit = (opts: { gradeOverride?: string; acceptGradeName?: boolean } = {}) => {
     if (create.isPending) return;
     const problems = courseCreateProblems({ name, gradeId, termId, startMode, startDate, slots, cycleSessions, cyclePrice, capacity });
     if (problems.length || !gradeId || !termId) {
@@ -138,7 +140,7 @@ export default function CourseCreateScreen() {
     create.mutate(
       {
         name: name.trim(),
-        grade_id: Number(gradeId),
+        grade_id: Number(opts.gradeOverride ?? gradeId),
         academic_session_id: Number(termId),
         capacity: capacity.trim() ? Number(capacity.trim()) : undefined,
         teacher_location_id: venueId,
@@ -153,6 +155,10 @@ export default function CourseCreateScreen() {
         cycle_price: Number(cyclePrice.trim()),
         booklet_price: hasBooklet && bookletPrice.trim() ? Number(bookletPrice.trim()) : null,
         booking_price: hasBooking && !bookletIsDownPayment && bookingPrice.trim() ? Number(bookingPrice.trim()) : null,
+        // Founder 2026-11-16: a course NAMED first year but SET to second saved every student as
+        // second-year. The server compares the name with the grade and asks.
+        grade_check: true,
+        accept_grade_name: opts.acceptGradeName || undefined,
       },
       {
         onSuccess: (res) => {
@@ -166,6 +172,18 @@ export default function CourseCreateScreen() {
           Alert.alert(title, body, [{ text: sessionsDue ? t('onboarding.view_course') : t('common.ok'), onPress: () => router.replace(`/(teacher)/courses/${res.course.id}` as Href) }]);
         },
         onError: (e: any) => {
+          if (e?.response?.data?.code === 'GRADE_NAME_MISMATCH' && e.response.data.errors) {
+            const m = e.response.data.errors as GradeNameMismatch;
+            Alert.alert(t('teacher.grade_name_title'), String(e.response.data.message ?? ''), [
+              ...(m.suggested_grade_id ? [{
+                text: t('teacher.grade_name_use', { grade: m.suggested_grade_name ?? '' }),
+                onPress: () => { setGradeId(m.suggested_grade_id); submit({ gradeOverride: m.suggested_grade_id! }); },
+              }] : []),
+              { text: t('teacher.grade_name_keep', { grade: m.chosen_grade_name }), onPress: () => submit({ acceptGradeName: true }) },
+              { text: t('common.back'), style: 'cancel' as const },
+            ]);
+            return;
+          }
           if (isScheduleConflict(e)) {
             const list = scheduleConflicts(e);
             setConflicts(list);
@@ -354,7 +372,7 @@ export default function CourseCreateScreen() {
           </FormCard>
           </Surface>
 
-          <Surface id="teacher.course_create.submit_button"><Button title={t('teacher.create_course')} onPress={submit} loading={create.isPending} disabled={create.isPending} variant="primary" /></Surface>
+          <Surface id="teacher.course_create.submit_button"><Button title={t('teacher.create_course')} onPress={() => submit()} loading={create.isPending} disabled={create.isPending} variant="primary" /></Surface>
         </>
       ) : null}
     </FormScreen>
