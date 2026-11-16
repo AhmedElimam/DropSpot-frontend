@@ -105,8 +105,14 @@ const ICON_MAP = {
   pause: 'pause',
   redo: 'arrow-redo',
   list: 'list',
-  // Brand glyph — no outline variant, never pass `outline`.
+  // «ادعُ معلّمًا»: the invite row, the link, and the share buttons (founder 2026-11-17).
+  gift: 'gift',
+  link: 'link',
+  share: 'share-social',
+  sms: 'chatbubble',
+  // Brand glyphs — no outline variant, never pass `outline`. Ionicons has no Messenger logo.
   whatsapp: 'logo-whatsapp',
+  facebook: 'logo-facebook',
 } as const;
 
 export type IconName = keyof typeof ICON_MAP;

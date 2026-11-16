@@ -1,7 +1,8 @@
 import type { TFunction } from 'i18next';
-import { isLifetimeExemption, type SubscriptionState } from '@/api/subscription';
+import { isLifetimeExemption, type SubscriptionDiscount, type SubscriptionState } from '@/api/subscription';
 import type { StampInk } from '@/components/rose/RoseStamp';
 import { formatDate, formatNumber } from '@/utils/format';
+import { billDiscount } from './upcomingBill';
 
 /**
  * The subscription as a sheet in مدام روز's book (founder 2026-10-25): a receipt for a paid
@@ -19,7 +20,7 @@ export interface SubscriptionSheet {
   rows: { label: string; value: string; strong?: boolean }[];
 }
 
-export function subscriptionSheet(sub: SubscriptionState | null | undefined, t: TFunction, female = false): SubscriptionSheet | null {
+export function subscriptionSheet(sub: SubscriptionState | null | undefined, t: TFunction, female = false, discounts: SubscriptionDiscount[] = []): SubscriptionSheet | null {
   if (!sub) return null;
   const day = (d: string | null | undefined) => (d ? formatDate(d) : '—');
   const money = (v: number | null | undefined) => `${formatNumber(Number(v ?? 0), { maximumFractionDigits: 0 })} ${t('subscription.egp')}`;
@@ -50,17 +51,24 @@ export function subscriptionSheet(sub: SubscriptionState | null | undefined, t: 
         ],
       };
     }
-    case 'pending':
+    case 'pending': {
+      // An invited teacher's first bill: the list price and the welcome discount above the amount.
+      const disc = billDiscount(sub, discounts);
       return {
         kind: 'due', ink: 'navy', word: t('subscription.stamp_due'), title: t('subscription.status_title_bill'),
         line: t('subscription.rose_due', { date: day(sub.late_at) }),
         rows: [
           { label: t('subscription.row_plan'), value: plan },
+          ...(disc ? [
+            { label: t('subscription.row_list_price'), value: money(disc.list) },
+            { label: disc.welcome ? t('subscription.row_welcome_discount') : (disc.label ?? t('subscription.row_discount')), value: t('subscription.row_discount_value', { pct: formatNumber(disc.pct, { maximumFractionDigits: 0 }), amount: money(disc.amount) }) },
+          ] : []),
           { label: t('subscription.row_amount_due'), value: money(sub.price), strong: true },
           { label: t('subscription.row_issued'), value: day(sub.due_at) },
           { label: t('subscription.row_standard_until'), value: day(sub.late_at), strong: true },
         ],
       };
+    }
     case 'late':
       return {
         kind: 'late', ink: 'red', word: t('subscription.stamp_late'), title: t('subscription.status_title_bill'),
