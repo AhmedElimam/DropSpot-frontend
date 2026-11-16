@@ -146,6 +146,10 @@ export default function TeacherSettings() {
           {/* The payment status and its dates, stamped like her popup (founder 2026-10-25). */}
           <Surface id="teacher.settings.row_subscription" assistantNeeds="teacher"><SubscriptionStatusCard /></Surface>
           <Group>
+            {/* «ادعُ معلّمًا واكسب» — a founding teacher's invite code (founder 2026-11-17). */}
+            {user?.is_founding_teacher && !isAssistant ? (
+              <Surface id="teacher.settings.row_referral" assistantNeeds="teacher"><Row icon="gift" tint={colors.warningDark} tintBg={colors.warningLight} label={t('referral.row_title')} sub={t('referral.row_sub')} onPress={() => router.push('/(teacher)/referral' as Href)} /></Surface>
+            ) : null}
             <Surface id="teacher.settings.row_assistants" assistantNeeds="teacher"><Row icon="children" tint={colors.brand} tintBg={colors.brandTint} label={t('assistants.title')} sub={t('assistants.subtitle')} onPress={() => router.push('/(teacher)/assistants' as Href)} /></Surface>
             <Surface id="teacher.settings.row_data_export" assistantNeeds="teacher"><Row icon="download" tint={colors.info} tintBg={colors.infoLight} label={t('data_export.title')} sub={t('data_export.row_sub')} onPress={() => router.push('/(teacher)/data-export' as Href)} /></Surface>
             <Surface id="teacher.settings.row_change_password"><Row icon="lock" tint={colors.success} tintBg={colors.successLight} label={t('auth.change_password')} sub={t('setup.password_hint')} onPress={() => router.push('/change-password')} /></Surface>

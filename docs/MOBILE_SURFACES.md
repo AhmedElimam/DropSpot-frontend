@@ -223,6 +223,7 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `screen.teacher.pending-collections` — screen · app/(teacher)/pending-collections.tsx
 - `screen.teacher.phone-confirmations` — screen · app/(teacher)/phone-confirmations.tsx
 - `screen.teacher.reconcile` — screen · app/(teacher)/reconcile.tsx
+- `screen.teacher.referral` — screen · app/(teacher)/referral.tsx
 - `screen.teacher.record-student` — screen · app/(teacher)/record-student.tsx
 - `screen.teacher.resolution` — screen · app/(teacher)/resolution.tsx
 - `screen.teacher.revision-create` — screen · app/(teacher)/revision-create.tsx
@@ -770,6 +771,10 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `teacher.reconcile.rejected_scans` — element · app/(teacher)/reconcile.tsx
 - `teacher.reconcile.rejected_scans.dismiss` — element · app/(teacher)/reconcile.tsx
 - `teacher.reconcile.rejected_scans.requeue` — element · app/(teacher)/reconcile.tsx
+- `teacher.referral.code_card` — element · app/(teacher)/referral.tsx
+- `teacher.referral.share` — element · app/(teacher)/referral.tsx
+- `teacher.referral.stats` — element · app/(teacher)/referral.tsx
+- `teacher.referral.unavailable` — element · app/(teacher)/referral.tsx
 - `teacher.record_student.added_names` — element · app/(teacher)/record-student.tsx
 - `teacher.record_student.course_picker` — element · app/(teacher)/record-student.tsx
 - `teacher.record_student.dedupe_modal` — element · app/(teacher)/record-student.tsx
@@ -1008,6 +1013,7 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `teacher.settings.row_getting_started` — element · assistant: teacher · app/(teacher)/(tabs)/settings.tsx
 - `teacher.settings.row_logo` — element · assistant: teacher · app/(teacher)/(tabs)/settings.tsx
 - `teacher.settings.row_notifications` — element · app/(teacher)/(tabs)/settings.tsx
+- `teacher.settings.row_referral` — element · assistant: teacher · app/(teacher)/(tabs)/settings.tsx
 - `teacher.settings.row_revise_switch` — element · assistant: teacher · app/(teacher)/(tabs)/settings.tsx
 - `teacher.settings.row_subscription` — element · assistant: teacher · app/(teacher)/(tabs)/settings.tsx
 - `teacher.settings.row_theme` — element · app/(teacher)/(tabs)/settings.tsx

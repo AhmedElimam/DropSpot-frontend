@@ -14,6 +14,8 @@ import { getSubscription, chooseSubscriptionPlan, sendPaidNotice, type Subscript
 import { formatDate, formatNumber } from '@/utils/format';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { subscriptionSheet } from './receipt';
+import { billDiscount, discountChip, isDiscounted, upcomingBill } from './upcomingBill';
+import type { UpcomingPlanPrice } from '@/api/subscription';
 import { SubscriptionSheetView } from './SubscriptionSheetView';
 
 /**
@@ -69,7 +71,12 @@ export function SubscriptionPanel({ walled = false }: { walled?: boolean }) {
   const n = (v: number | null | undefined) => formatNumber(Number(v ?? 0), { maximumFractionDigits: 0 });
   const egp = (v: number | null | undefined) => `${n(v)} ${t('subscription.egp')}`;
   const day = (d: string | null | undefined) => (d ? formatDate(d) : '—');
-  const sheet = subscriptionSheet(state, t, female);
+  const discounts = q.data?.discounts ?? [];
+  const sheet = subscriptionSheet(state, t, female, discounts);
+  // «فاتورتك القادمة» while in the trial (or waiting for the first bill), and the welcome
+  // discount on an open bill at the standard price (founder 2026-11-17).
+  const upcoming = upcomingBill(state);
+  const disc = billDiscount(state, discounts);
 
   const chip = phase === 'exempt' || phase === 'active' || phase === 'trial'
     ? { fg: colors.successText, bg: colors.successLight }
@@ -132,9 +139,38 @@ export function SubscriptionPanel({ walled = false }: { walled?: boolean }) {
           </View>
         ) : null}
         {phase === 'exempt' && state.exempt_reason === 'founding' ? <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 22, color: 'rgba(255,255,255,0.86)', marginTop: 4 }}>{t(female ? 'subscription.exempt_founding_f' : 'subscription.exempt_founding')}</Text> : null}
+        {disc ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: spacing.sm, marginTop: 2 }}>
+            <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: 'rgba(255,255,255,0.7)', textDecorationLine: 'line-through' }}>{egp(disc.list)}</Text>
+            <View style={{ backgroundColor: colors.successLight, borderRadius: radius.full, paddingHorizontal: spacing.md, paddingVertical: 4 }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: colors.successText }}>{discountChip(disc.pct, t, disc.welcome ? null : disc.label)}</Text>
+            </View>
+            <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: 'rgba(255,255,255,0.86)' }}>{t('subscription.bill_saved', { amount: egp(disc.amount) })}</Text>
+          </View>
+        ) : null}
         {phase === 'pending' ? <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: 'rgba(255,255,255,0.86)', marginTop: 4 }}>{t('subscription.days_to_late', { count: state.days_left ?? 0, n: n(state.days_left ?? 0) })}</Text> : null}
         {phase === 'late' ? <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: '#FFD0D6', marginTop: 4 }}>{t('subscription.days_to_block', { count: state.days_left ?? 0, n: n(state.days_left ?? 0) })}</Text> : null}
       </LinearGradient>
+
+      {/* The first bill on its way: when, and what it comes to after the welcome discount */}
+      {upcoming ? (
+        <View style={card}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+            <Text style={{ ...h, flex: 1 }}>{t('subscription.upcoming_title')}</Text>
+            {upcoming.pct != null ? (
+              <View style={{ backgroundColor: colors.successLight, borderRadius: radius.full, paddingHorizontal: spacing.md, paddingVertical: 4 }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: colors.successText }}>{discountChip(upcoming.pct, t)}</Text>
+              </View>
+            ) : null}
+          </View>
+          <Text style={{ ...body, marginTop: 2 }}>{t('subscription.upcoming_issued', { date: day(upcoming.dueAt) })}</Text>
+          <View style={{ marginTop: spacing.md, gap: spacing.sm }}>
+            <UpcomingPrice title={t('subscription.plan_term')} p={upcoming.term} egp={egp} />
+            <UpcomingPrice title={t('subscription.plan_year')} p={upcoming.year} egp={egp} />
+          </View>
+          {upcoming.pct != null ? <Text style={{ ...body, fontSize: 12.5, marginTop: spacing.sm }}>{t('subscription.upcoming_once')}</Text> : null}
+        </View>
+      ) : null}
 
       {/* Her stamped sheet: the receipt, the exemption or the bill */}
       {sheet ? <SubscriptionSheetView sheet={sheet} /> : null}
@@ -237,6 +273,18 @@ function PlanTile({ title, length, price, save, current, currentLabel, onPress, 
       <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary, marginTop: spacing.sm }} numberOfLines={1} adjustsFontSizeToFit>{price}</Text>
       {save ? <Text style={{ fontFamily: fonts.medium, fontSize: 11.5, color: colors.success, marginTop: 2 }}>{save}</Text> : null}
     </TouchableOpacity>
+  );
+}
+
+/** One plan's first bill: the list price struck through when a discount brings it down. */
+function UpcomingPrice({ title, p, egp }: { title: string; p: UpcomingPlanPrice; egp: (v: number) => string }) {
+  const off = isDiscounted(p);
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, borderRadius: radius.lg, backgroundColor: colors.surfaceSunken, paddingHorizontal: spacing.md, paddingVertical: 10 }}>
+      <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary }} numberOfLines={1}>{title}</Text>
+      {off ? <Text style={{ fontFamily: fonts.regular, fontSize: 13.5, color: colors.textTertiary, textDecorationLine: 'line-through' }}>{egp(p.list)}</Text> : null}
+      <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: off ? colors.successText : colors.textPrimary }}>{egp(p.price)}</Text>
+    </View>
   );
 }
 

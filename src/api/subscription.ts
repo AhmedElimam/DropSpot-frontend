@@ -13,6 +13,28 @@ export interface SubscriptionPrices {
   block_days: number;
 }
 
+/** One plan's first bill: the list price and what the teacher will actually be billed. */
+export interface UpcomingPlanPrice {
+  list: number;
+  price: number;
+}
+
+/** The first bill on its way (phases `trial` and `lapsed` only): when it is issued and what it costs. */
+export interface SubscriptionUpcoming {
+  due_at: string;
+  discount_pct?: number | null;
+  term: UpcomingPlanPrice;
+  year: UpcomingPlanPrice;
+}
+
+/** A discount taken off the open bill — today only `referral_welcome` (an invited teacher's first bill). */
+export interface SubscriptionDiscount {
+  kind: string;
+  label?: string | null;
+  pct?: number | null;
+  amount?: number | null;
+}
+
 export interface SubscriptionState {
   phase: SubscriptionPhase;
   blocked: boolean;
@@ -38,6 +60,14 @@ export interface SubscriptionState {
   started_at?: string | null;
   /** Set when the viewer is an assistant: the state shown is their teacher's. */
   for_assistant?: boolean;
+  /**
+   * The welcome discount (founder 2026-11-17). Pending: the % taken off this bill (`price` is then
+   * the discounted price, `standard_price` the list price). Trial / lapsed: the % waiting for the
+   * first bill. Newer servers only.
+   */
+  discount_pct?: number | null;
+  /** The first bill on its way — trial and lapsed only. Newer servers only. */
+  upcoming?: SubscriptionUpcoming | null;
 }
 
 export interface PaymentChannels {
@@ -50,11 +80,14 @@ export interface PaymentChannels {
 export interface SubscriptionResponse {
   state: SubscriptionState | null;
   payment: PaymentChannels;
+  /** The discounts on the open bill (`data.subscription.discounts`). */
+  discounts: SubscriptionDiscount[];
 }
 
 export async function getSubscription(): Promise<SubscriptionResponse> {
   const { data } = await client.get('/teacher/subscription');
-  return { state: data?.data?.state ?? null, payment: data?.data?.payment ?? {} };
+  const discounts = data?.data?.subscription?.discounts ?? data?.data?.state?.discounts;
+  return { state: data?.data?.state ?? null, payment: data?.data?.payment ?? {}, discounts: Array.isArray(discounts) ? discounts : [] };
 }
 
 export async function chooseSubscriptionPlan(plan: 'term' | 'annual'): Promise<SubscriptionState> {

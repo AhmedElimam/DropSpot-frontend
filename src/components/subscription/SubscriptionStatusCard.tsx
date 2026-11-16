@@ -8,11 +8,13 @@ import { useAuthStore } from '@/stores/authStore';
 import { formatDate } from '@/utils/format';
 import { subscriptionSheet } from './receipt';
 import { SubscriptionSheetView } from './SubscriptionSheetView';
+import { upcomingBillLine } from './upcomingBill';
 
 /**
  * «حالة الاشتراك» in settings (founder 2026-10-25): the payment status and the dates — paid
  * until, exempt until, the open bill — as the same stamped sheet her popup shows. From the
- * login payload; tap → the subscription screen. A trial or a bill on its way gets one line.
+ * login payload; tap → the subscription screen. A trial or a bill on its way gets one line,
+ * and a trial a second one with the first bill it is heading to.
  */
 export function SubscriptionStatusCard() {
   const { t } = useTranslation();
@@ -25,11 +27,13 @@ export function SubscriptionStatusCard() {
     : sub.phase === 'trial' ? t('subscription.status_trial_line', { date: sub.trial_ends_at ? formatDate(sub.trial_ends_at) : '—' })
     : sub.phase === 'lapsed' ? t('subscription.status_lapsed_line')
     : null;
+  // «فاتورتك القادمة: ٤٥٠ ج.م بعد خصم ٤٥٪ — ١ ديسمبر» under the trial line (founder 2026-11-17).
+  const upcoming = sub?.phase === 'trial' ? upcomingBillLine(sub, t) : null;
 
   return (
     <TouchableOpacity onPress={open} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={`${t('subscription.settings_card_title')}: ${phaseLabel}`}
       style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginBottom: spacing.md, ...shadows.sm }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: sheet || line ? spacing.md : 0 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: sheet || line || upcoming ? spacing.md : 0 }}>
         <View style={{ width: 42, height: 42, borderRadius: 13, backgroundColor: colors.accentLight, justifyContent: 'center', alignItems: 'center', marginEnd: spacing.md }}>
           <Icon name="card" size={21} color={colors.accent} />
         </View>
@@ -41,6 +45,7 @@ export function SubscriptionStatusCard() {
       </View>
       {sheet ? <SubscriptionSheetView sheet={sheet} compact /> : null}
       {line ? <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary }}>{line}</Text> : null}
+      {upcoming ? <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textPrimary, marginTop: line ? 4 : 0 }}>{upcoming}</Text> : null}
     </TouchableOpacity>
   );
 }
