@@ -25,6 +25,9 @@ export const POPUP_ORDER = [
   // A survey comes after the app's own intro (founder 2026-10-26: «nazer intro doesn't show any
   // more because survey's on»); SurveyModal also waits out الناظر and the first tour.
   'survey',
+  // «ادعُ معلّمًا» for the founding teachers, at most once a week (founder 2026-11-17): after
+  // every other popup — it is an offer, never in the way of what the app has to say.
+  'referral_promo',
 ] as const;
 export type PopupId = (typeof POPUP_ORDER)[number];
 
