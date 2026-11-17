@@ -13,13 +13,15 @@ import { PageHero } from '@/components/ui/PageHero';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { Surface } from '@/ui/surfaces';
 import { useReferral } from '@/hooks/useReferral';
-import { referralLinks, referralShareText, referralTerms, type ReferralInfo } from '@/api/referral';
+import { referralLinks, referralReward, referralShareText, referralTerms, type ReferralInfo } from '@/api/referral';
+import { ReferralStash } from '@/components/referral/ReferralStash';
 import { formatNumber } from '@/utils/format';
 
 /**
  * «ادعُ معلّمًا» (founder 2026-11-17): a founding teacher's invite code, the link it opens, and
  * one tap to send it — WhatsApp, Messenger, SMS or the phone's own share sheet. The teacher
- * they invite signs up on the website and gets the trial plus a discount on the first bill.
+ * they invite signs up on the website and gets the trial plus a discount on the first bill; the
+ * inviter earns a free batch of QR cards for each one who activates, kept in the stash below.
  * No clipboard module ships in this build (OTA only, no new native code): the code and the
  * link are selectable text instead, and «مشاركة» covers «نسخ» on both systems.
  */
@@ -71,6 +73,7 @@ export default function ReferralScreen() {
 function ReferralContent({ info, card }: { info: ReferralInfo; card: ViewStyle }) {
   const { t } = useTranslation();
   const terms = referralTerms(info);
+  const reward = referralReward(info);
   const n = (v: number | null | undefined) => formatNumber(Number(v ?? 0), { maximumFractionDigits: 0 });
   const message = referralShareText(info, t);
   const url = info.url ?? '';
@@ -110,7 +113,11 @@ function ReferralContent({ info, card }: { info: ReferralInfo; card: ViewStyle }
         <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 22, color: 'rgba(255,255,255,0.9)', marginTop: spacing.md }}>
           {t('referral.offer', { days: n(terms.trialDays), min: n(terms.min), max: n(terms.max) })}
         </Text>
-        <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 19, color: 'rgba(255,255,255,0.75)', marginTop: 4 }}>{t('referral.reward_note')}</Text>
+        {/* The inviter's side (founder 2026-11-17): free QR cards per teacher who activates — no % any more. */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.sm, backgroundColor: 'rgba(255,255,255,0.14)', borderRadius: radius.lg, paddingHorizontal: spacing.md, paddingVertical: 10 }}>
+          <Icon name="scan" size={18} color="#FFFFFF" />
+          <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 13.5, lineHeight: 21, color: '#FFFFFF' }}>{t('referral.reward_cards', { n: n(reward.cards) })}</Text>
+        </View>
       </LinearGradient>
       </Surface>
 
@@ -133,6 +140,9 @@ function ReferralContent({ info, card }: { info: ReferralInfo; card: ViewStyle }
         <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.textTertiary, marginTop: spacing.sm }}>{t('referral.copy_hint')}</Text>
       </View>
       </Surface>
+
+      {/* «مخزن كروت QR»: the batches earned, each activated when the teacher likes */}
+      <ReferralStash info={info} card={card} />
 
       {/* How the invitations went */}
       <Surface id="teacher.referral.stats">

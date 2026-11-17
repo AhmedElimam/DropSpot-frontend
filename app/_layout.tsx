@@ -55,6 +55,7 @@ import { NazerUnlockModal } from '@/components/nazer/NazerUnlockModal';
 import { CardUnlockModal } from '@/components/cardOrder/CardUnlockModal';
 import { RoseUnlockModal } from '@/components/rose/RoseUnlockModal';
 import { SubscriptionStatusModal } from '@/components/subscription/SubscriptionStatusModal';
+import { ReferralPromoModal } from '@/components/referral/ReferralPromoModal';
 import { SubscriptionCornerTag } from '@/components/subscription/SubscriptionCornerTag';
 import { SubscriptionSync } from '@/components/subscription/SubscriptionSync';
 import { ParentNumberCheckModal } from '@/components/student/ParentNumberCheckModal';
@@ -323,6 +324,8 @@ export default function RootLayout() {
             <SubscriptionStatusModal />
             {/* After him and his tour: a student proves their parent's number (soft, «بعدين»). */}
             <ParentNumberCheckModal />
+            {/* «ادعُ معلّمًا» for a founding teacher, at most once a week — after every popup above (founder 2026-11-17). */}
+            <ReferralPromoModal />
             {/* The two-minute spotlight tour — once for a new account, replayable from settings. */}
             <SpotlightOverlay />
             {/* A notification that arrives while the app is open: the toast, and the bell shakes (founder 2026-10-27). */}
