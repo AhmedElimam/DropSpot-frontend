@@ -42,6 +42,13 @@ interface AuthState {
   impersonation: ImpersonationState | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  /**
+   * A shared phone (siblings, `user.profiles`) has just signed in: the router shows the
+   * picker «مين بيستخدم التطبيق دلوقتي؟» once. In memory on purpose — a cold start with a
+   * stored session goes straight to the home of whoever was chosen last.
+   */
+  profilePickPending: boolean;
+  setProfilePickPending: (pending: boolean) => void;
   setTokens: (access: string, refresh: string) => Promise<void>;
   setSession: (user: User, role: UserRole) => Promise<void>;
   /** Merge a few fields into the cached user (a self-edit the server already accepted). */
@@ -107,6 +114,9 @@ export const useAuthStore = create<AuthState>((set, get) => {
     switching: false,
     isAuthenticated: false,
     isLoading: true,
+    profilePickPending: false,
+
+    setProfilePickPending: (pending) => set({ profilePickPending: pending }),
 
     setSession: async (user, role) => {
       const { activeTeacherId, impersonation } = get();
@@ -331,7 +341,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
       } catch {
         // best-effort
       }
-      set({ user: null, role: null, activeTeacherId: null, impersonation: null, isAuthenticated: false });
+      set({ user: null, role: null, activeTeacherId: null, impersonation: null, isAuthenticated: false, profilePickPending: false });
     },
 
     hydrate: async () => {

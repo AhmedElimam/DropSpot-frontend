@@ -12,6 +12,17 @@ import {
 } from '@/api/auth';
 import { acceptStudentInvite } from '@/api/invitation';
 import { withTimeout, LOGIN_TIMEOUT_MS } from '@/api/withTimeout';
+import { isSharedPhone } from '@/utils/sharedProfiles';
+import type { User } from '@/types/user';
+
+/**
+ * A fresh sign-in on a phone siblings share: ask «مين بيستخدم التطبيق دلوقتي؟» once. Set
+ * BEFORE setSession — that flips isAuthenticated, and the router reads this flag on its way
+ * to the home. Cleared otherwise, so a previous login's flag never leaks into this one.
+ */
+function notePickerAfterSignIn(user: User, role: string) {
+  useAuthStore.getState().setProfilePickPending(role === 'student' && isSharedPhone(user?.profiles));
+}
 
 export function useLogin() {
   const setSession = useAuthStore((s) => s.setSession);
@@ -32,6 +43,7 @@ export function useLogin() {
       // teachers) — that mismatch was routing teachers into the parent app.
       const role = resolveRole(data.user);
       await setTokens(data.tokens.access_token, data.tokens.refresh_token);
+      notePickerAfterSignIn(data.user, role);
       await setSession(data.user, role);
       track('login', { method: 'password', role });
     },
@@ -73,6 +85,7 @@ export function useAcceptInvite() {
     onSuccess: async (data) => {
       const role = resolveRole(data.user);
       await setTokens(data.tokens.access_token, data.tokens.refresh_token);
+      notePickerAfterSignIn(data.user, role);
       await setSession(data.user, role);
     },
   });
@@ -96,6 +109,7 @@ export function useResetPassword() {
     onSuccess: async (data) => {
       const role = resolveRole(data.user);
       await setTokens(data.tokens.access_token, data.tokens.refresh_token);
+      notePickerAfterSignIn(data.user, role);
       await setSession(data.user, role);
     },
   });

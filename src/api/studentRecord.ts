@@ -27,6 +27,12 @@ export interface RecordStudentPayload extends EnrollmentTermsInput {
   session_schedule_id?: number;
   /** «بنفس الاسم؟» answered yes: a second child with this first name on the parent's number. */
   allow_same_name?: boolean;
+  /**
+   * The typed `student_phone` is a brother's own login (EXISTING_STUDENT `other_child`): record
+   * this child WITHOUT a phone and link him to that phone — one shared phone, a switcher in the
+   * student app (founder 2026-11-19).
+   */
+  share_phone?: boolean;
 }
 
 export interface RecordStudentResult {
@@ -37,6 +43,8 @@ export interface RecordStudentResult {
   linked?: boolean;
   /** Recorded without a parent: the student was texted the «ضيف رقم ولي أمرك» link. */
   parent_invited?: boolean;
+  /** `share_phone`: the brother whose phone this student now signs in from. */
+  shared_with?: { student_id: number; name: string } | null;
 }
 
 /** A duplicate-parent-phone match — id + name ONLY (never the other teacher's data). */

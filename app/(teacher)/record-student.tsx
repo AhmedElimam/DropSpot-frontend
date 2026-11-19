@@ -159,6 +159,8 @@ export default function RecordStudent() {
 
   type SubmitOpts = {
     withoutStudentPhone?: boolean; acceptGrade?: boolean; parentPhone?: string; allowSameName?: boolean;
+    /** «سجّله على نفس الرقم»: the typed number is a brother's — share it (a switcher in his app). */
+    sharePhone?: boolean;
     /** A link straight from the lookup's card: the number it was found by, and nothing typed. */
     via?: { student_phone?: string; parent_phone?: string; name: string };
   };
@@ -181,7 +183,10 @@ export default function RecordStudent() {
       ...(linkStudentId ? { link_student_id: linkStudentId } : {}),
       ...(opts.acceptGrade ? { accept_grade_mismatch: true } : {}),
       ...(opts.allowSameName ? { allow_same_name: true } : {}),
+      ...(opts.sharePhone ? { share_phone: true } : {}),
     };
+    // Read before afterCreated() empties the form.
+    const typedFirst = firstName(name);
     setSaving(true);
     try {
       const res = await recordStudent(payload);
@@ -193,7 +198,11 @@ export default function RecordStudent() {
         afterCreated(null, t('offline.record_queued'));
         return;
       }
-      afterCreated(res.enrollment_id, res.parent_invited ? t('enroll_ui.parent_invited_note') : undefined, opts.via?.name);
+      const shared = (res as { shared_with?: { name?: string | null } | null }).shared_with;
+      const note = shared?.name
+        ? t('enroll_ui.other_child_shared_done', { typed: typedFirst, owner: firstName(shared.name) })
+        : res.parent_invited ? t('enroll_ui.parent_invited_note') : undefined;
+      afterCreated(res.enrollment_id, note, opts.via?.name);
     } catch (e) {
       if (isAxiosError(e) && e.response?.status === 409 && e.response.data?.code === 'EXISTING_STUDENT') {
         // The student phone already exists → show the QR-style profile popup;
@@ -748,15 +757,19 @@ export default function RecordStudent() {
                   <ActivityIndicator color={colors.brand} style={{ marginTop: spacing.lg }} />
                 ) : ownStudent?.other_child ? (
                   <>
-                    {parentPhone.trim() ? (
-                      <TouchableOpacity onPress={() => submit('new', undefined, { withoutStudentPhone: true })} activeOpacity={0.85} style={{ marginTop: spacing.lg, backgroundColor: colors.brand, borderRadius: radius.lg, paddingVertical: spacing.md, paddingHorizontal: spacing.md, alignItems: 'center', alignSelf: 'stretch' }}>
-                        <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff', textAlign: 'center' }}>{t('enroll_ui.other_child_record_new', { typed: firstName(name) })}</Text>
+                    {/* Siblings share one phone (founder 2026-11-19): this child is recorded with no
+                        number of his own and linked to the brother's — same password, and the
+                        student app lets them switch. The same student_phone goes back with share_phone. */}
+                    <Surface id="teacher.record_student.existing_modal.share_phone">
+                    <TouchableOpacity onPress={() => submit('new', undefined, { sharePhone: true })} activeOpacity={0.85} style={{ marginTop: spacing.lg, backgroundColor: colors.brand, borderRadius: radius.lg, paddingVertical: spacing.md, paddingHorizontal: spacing.md, alignItems: 'center', alignSelf: 'stretch' }}>
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff', textAlign: 'center' }}>{t('enroll_ui.other_child_share', { typed: firstName(name), owner: firstName(ownStudent.name) })}</Text>
+                    </TouchableOpacity>
+                    </Surface>
+                    {!parentPhone.trim() ? (
+                      <TouchableOpacity onPress={() => { setStudentPhone(''); setOwnStudent(null); }} activeOpacity={0.85} style={{ marginTop: spacing.sm, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, paddingVertical: spacing.md, alignItems: 'center', alignSelf: 'stretch' }}>
+                        <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textPrimary }}>{t('enroll_ui.other_child_clear_phone')}</Text>
                       </TouchableOpacity>
-                    ) : (
-                      <TouchableOpacity onPress={() => { setStudentPhone(''); setOwnStudent(null); }} activeOpacity={0.85} style={{ marginTop: spacing.lg, backgroundColor: colors.brand, borderRadius: radius.lg, paddingVertical: spacing.md, alignItems: 'center', alignSelf: 'stretch' }}>
-                        <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>{t('enroll_ui.other_child_clear_phone')}</Text>
-                      </TouchableOpacity>
-                    )}
+                    ) : null}
                     {!ownStudent.already_in_target ? (
                       <TouchableOpacity onPress={() => submit('link', ownStudent.student_id)} activeOpacity={0.85} style={{ marginTop: spacing.sm, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, paddingVertical: spacing.md, paddingHorizontal: spacing.md, alignItems: 'center', alignSelf: 'stretch' }}>
                         <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textPrimary, textAlign: 'center' }}>{t('enroll_ui.other_child_is_owner', { owner: firstName(ownStudent.name), course: ownStudent.target_course_name })}</Text>

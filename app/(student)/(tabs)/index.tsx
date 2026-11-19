@@ -38,6 +38,7 @@ import { NazerHub } from '@/components/nazer/NazerHub';
 import { studentSay } from '@/nazer/mood';
 import { PrivateLessonChip } from '@/components/attendance/PrivateLessonChip';
 import { tracksAttendance, attendanceLabel } from '@/utils/privateLesson';
+import { ProfileSwitchChip } from '@/components/student/ProfileSwitcher';
 
 const statusDot = (): Record<string, string> => ({
   live: colors.success,
@@ -128,6 +129,8 @@ export default function StudentDashboard() {
             {formatDate(new Date())}
           </Text>
           <ConnectionLine style={{ marginTop: spacing.sm }} />
+          {/* Siblings on one phone: who is using the app now, and the way to switch. Nothing otherwise. */}
+          <Surface id="student.home.profile_switcher"><ProfileSwitchChip /></Surface>
 
           <Surface id="student.home.stats">
           <TourTarget id="home:stats" style={{ marginTop: spacing.lg }}><View style={{ flexDirection: 'row', gap: spacing.sm }}>
