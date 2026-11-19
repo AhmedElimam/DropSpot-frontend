@@ -51,6 +51,27 @@ export interface User {
   subscription_blocked?: boolean;
   /** Teacher only: their uploaded brand logo — shown as their avatar when set. */
   logo_url?: string | null;
+  /**
+   * Student only: the students who sign in from this one phone (siblings sharing a number,
+   * founder 2026-11-19). Empty / missing = not shared, the app behaves as before. Two or more
+   * = a shared phone: a picker after login and a switcher on the home + profile.
+   */
+  profiles?: StudentProfileEntry[] | null;
+}
+
+/** One student on a shared phone (`user.profiles`, GET /student/profiles). */
+export interface StudentProfileEntry {
+  /** users.id — what POST /student/profiles/{user_id}/switch takes. */
+  user_id: number;
+  student_id: number | null;
+  name: string;
+  first_name?: string | null;
+  student_code?: string | null;
+  grade?: string | null;
+  /** The profile this session is signed in as. */
+  is_current?: boolean;
+  /** The student whose own number this phone is («صاحب الرقم»). */
+  holds_phone?: boolean;
 }
 
 export interface AuthTokens {

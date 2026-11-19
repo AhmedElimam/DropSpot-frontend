@@ -1,11 +1,13 @@
 import { Redirect, type Href } from 'expo-router';
 import { useAuthStore } from '@/stores/authStore';
 import { useThemeStore } from '@/stores/themeStore';
+import { shouldShowProfilePicker } from '@/utils/sharedProfiles';
 
 export default function Index() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const role = useAuthStore((s) => s.role);
   const user = useAuthStore((s) => s.user);
+  const profilePickPending = useAuthStore((s) => s.profilePickPending);
   // A redirect loop shows up here first: every pass through `/` logs where it went.
   if (__DEV__) console.log('[route] resolve →', !isAuthenticated ? 'login' : `${role} ${user?.must_accept_terms ? 'terms' : ''}`);
 
@@ -41,6 +43,13 @@ export default function Index() {
   // daily sweep has now flagged it — hard-block until they OTP-verify it.
   if (role === 'student' && user?.needs_own_number_verification) {
     return <Redirect href={'/verify-own-number' as Href} />;
+  }
+
+  // A phone siblings share (founder 2026-11-19): right after signing in, «مين بيستخدم التطبيق
+  // دلوقتي؟». After the walls above — those belong to the account that signed in — and before
+  // the home. Once per sign-in: the flag is set by the login, never by a cold start.
+  if (shouldShowProfilePicker({ role, pending: profilePickPending, profiles: user?.profiles })) {
+    return <Redirect href={'/profile-picker' as Href} />;
   }
 
   // Parent first login: their name was derived from a child's rather than given, so

@@ -294,6 +294,11 @@ export interface StudentDetail {
   phone?: string | null;
   phone_verified?: boolean;
   phone_vouched?: boolean;
+  /**
+   * Siblings sharing one phone (founder 2026-11-19): `holder` = his number is the shared one,
+   * `sibling` = he signs in from a brother's phone. Null / absent = not shared.
+   */
+  shared_phone?: { role: 'holder' | 'sibling'; with: { name: string; student_code: string | null }[] } | null;
   /** Teacher can remove this TERMINATED (dropped, still-visible) student from the roster now. */
   can_remove_from_roster?: boolean;
   /** «كارت المدرّس»: this teacher's card on the student, or the «برايم» mark that locks linking. Absent on older servers. */

@@ -37,6 +37,7 @@ import { Slot } from '@/ui/Slot';
 import { SendReportSheet } from '@/components/tickets/SendReportSheet';
 import { StudentHomeworkCard } from '@/components/homework/StudentHomeworkCard';
 import { OpenTicketSheet } from '@/components/tickets/OpenTicketSheet';
+import { sharedPhoneLine } from '@/utils/sharedProfiles';
 
 /** One person to call: who, the number with who has proved it, call (and report, for a parent). */
 function ContactRow({ icon, label, name, phone, badge, empty, onCall, onFlag, divider = false }: {
@@ -115,6 +116,8 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
   // Leave the profile for another screen: from a modal, close it first.
   const go = (href: Href) => { onClose?.(); router.push(href); };
   const { data: s, isLoading, refetch } = useStudentDetail(id);
+  // Siblings on one phone: the one line about it (null when the number is not shared).
+  const sharedLine = sharedPhoneLine(s?.shared_phone, (k, o) => String(t(k, o)));
   const { refreshing, onRefresh } = usePullRefresh(refetch);
   // The roster behind the profile shows what changes here (founder 2026-11-01: a student
   // removed, a mark's percentage edited, and the list kept the old row until it was pulled).
@@ -575,6 +578,17 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
               empty={t('student_profile_ui.student_no_phone')}
               onCall={s.phone ? () => Linking.openURL(`tel:${s.phone}`) : undefined}
             />
+            {/* Siblings on one phone: whose phone this is shared with, or whose phone he signs in from. */}
+            {sharedLine ? (
+              <Surface id="teacher.student_profile.shared_phone">
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.infoLight, borderRadius: radius.lg, paddingVertical: spacing.sm, paddingHorizontal: spacing.md, marginBottom: spacing.sm }}>
+                <Icon name="children" size={16} color={colors.info} />
+                <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 12.5, lineHeight: 19, color: colors.textPrimary }}>
+                  {sharedLine}
+                </Text>
+              </View>
+              </Surface>
+            ) : null}
             {s.parents.map((p, i) => (
               <ContactRow
                 key={`parent-${p.id ?? i}`}

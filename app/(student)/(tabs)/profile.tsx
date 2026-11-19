@@ -27,6 +27,7 @@ import { getMyCardStatus } from '@/api/profile';
 import { PageHero } from '@/components/ui/PageHero';
 import { avatarSeed } from '@/components/ui/GeneratedAvatar';
 import { Surface } from '@/ui/surfaces';
+import { ProfileSwitchRow } from '@/components/student/ProfileSwitcher';
 
 /** The gold rule the printed card carries — the one mark this screen borrows. */
 const GOLD = '#C9A227';
@@ -221,6 +222,8 @@ export default function StudentProfile() {
               <Icon name="back" size={18} color={colors.textTertiary} />
             </TouchableOpacity>
             </Surface>
+            {/* Siblings on one phone: «تبديل الملف». Nothing when the phone is not shared. */}
+            <Surface id="student.profile.switch_profile"><ProfileSwitchRow /></Surface>
             <Surface id="student.profile.name_correction">
             <TouchableOpacity
               onPress={() => router.push('/request-name-correction' as Href)}
