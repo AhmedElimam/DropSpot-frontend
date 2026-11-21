@@ -39,6 +39,7 @@ const num = (v: string | number | null | undefined) => Number(v ?? 0);
 function tone(m: YearMonth): { bg: string; border: string; fg: string; note: string; dashed?: boolean; faded?: boolean } {
   const bill = m.bills[0];
   if (m.phase === 'future') return { bg: colors.surface, border: colors.borderLight, fg: colors.textTertiary, note: '', faded: true };
+  if (m.advance && !bill) return { bg: colors.surface, border: colors.brand, fg: colors.brand, note: i18n.t('billing_sheets.advance_chip'), dashed: true };
   if (m.phase === 'before_join' && !bill) return { bg: colors.surfaceSunken, border: colors.surfaceSunken, fg: colors.textTertiary, note: i18n.t('billing_sheets.before_join') };
   if (!bill) return { bg: colors.surface, border: colors.border, fg: colors.textSecondary, note: i18n.t('billing_sheets.no_bill'), dashed: true };
   const owed = m.bills.reduce((t, b) => t + num(b.remaining), 0);
@@ -197,7 +198,7 @@ function MonthPanel({ data, m, onChanged, onPrior }: { data: BillingYear; m: Yea
     <View style={{ marginTop: spacing.lg, backgroundColor: colors.background, borderRadius: radius.xl, padding: spacing.md, borderWidth: 1, borderColor: colors.borderLight }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary }}>{title}</Text>
-        {m.phase !== 'future' ? (
+        {m.phase !== 'future' && !m.advance ? (
           <View style={{ backgroundColor: colors.surface, borderRadius: radius.full, paddingHorizontal: 10, paddingVertical: 3 }}>
             <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.textSecondary }}>
               {m.held > 0 ? t('billing_sheets.attended_of', { attended: formatNumber(m.attended), held: formatNumber(m.held) }) : t('billing_sheets.no_sessions_recorded')}
@@ -320,20 +321,29 @@ function AddForm({ data, m, past, onChanged }: { data: BillingYear; m: YearMonth
   // next bill comes by itself when it completes — say so before a bill is issued by hand.
   const running = m.current ? data.months.flatMap((x) => x.bills.filter((b) => b.open_cycle && x.month < m.month)).at(0) : undefined;
   const [busy, setBusy] = useState(false);
+  // Next month paid in advance: the money taken now (defaults to the whole bill).
+  const [paidNow, setPaidNow] = useState(data.price ? String(Math.round(num(data.price))) : '');
   const add = async () => {
-    const a = Number(amount), s = Number(sessions);
+    const a = Number(amount), s = Number(sessions), c = Number(paidNow);
     if (!Number.isFinite(a) || a <= 0) return Alert.alert('', t('billing_sheets.enter_amount'));
+    if (m.advance && Number.isFinite(c) && c > a + 0.001) return Alert.alert('', t('billing_sheets.advance_paid_over'));
     setBusy(true);
     try {
-      await addBillingMonth(data.enrollment_id, { month: m.month, amount: a, sessions: Number.isFinite(s) && s > 0 ? s : null });
+      const msg = await addBillingMonth(data.enrollment_id, {
+        month: m.month, amount: a, sessions: Number.isFinite(s) && s > 0 ? s : null,
+        collect: m.advance && Number.isFinite(c) && c > 0 ? c : null,
+      });
       await onChanged();
+      if (m.advance && msg) Alert.alert('', msg);
     } catch (e) {
       Alert.alert('', getFriendlyErrorMessage(e));
     } finally { setBusy(false); }
   };
   return (
     <View style={{ marginTop: spacing.md, gap: spacing.sm }}>
-      <Note text={past
+      <Note text={m.advance
+        ? t('billing_sheets.advance_note', { month: m.label })
+        : past
         ? t('billing_sheets.add_bill_note_past')
         : t('billing_sheets.add_bill_note')} />
       {running ? (
@@ -346,8 +356,9 @@ function AddForm({ data, m, past, onChanged }: { data: BillingYear; m: YearMonth
       <View style={{ flexDirection: 'row', gap: spacing.sm }}>
         <Field label={t('expenses.amount')} value={amount} onChange={setAmount} />
         <Field label={t('collections.bill_sessions')} value={sessions} onChange={setSessions} />
+        {m.advance ? <Field label={t('billing_sheets.advance_paid_now')} value={paidNow} onChange={setPaidNow} /> : null}
       </View>
-      <Primary label={busy ? '…' : t('billing_sheets.issue_bill', { month: m.label })} icon="add" onPress={add} disabled={busy} />
+      <Primary label={busy ? '…' : m.advance ? t('billing_sheets.advance_issue', { month: m.label }) : t('billing_sheets.issue_bill', { month: m.label })} icon="add" onPress={add} disabled={busy} />
     </View>
   );
 }

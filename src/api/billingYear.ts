@@ -20,6 +20,8 @@ export interface YearMonth {
   label: string; // «أكتوبر»
   phase: 'before_join' | 'joined' | 'future';
   current: boolean;
+  /** Next month — can be billed and paid now (founder 2026-11-21). Older servers omit it. */
+  advance?: boolean;
   held: number;
   attended: number;
   bills: YearBill[];
@@ -47,10 +49,13 @@ export async function getBillingYear(studentId: number, opts: { year?: number; e
   return (data.data ?? data) as BillingYear;
 }
 
-/** Bill a joined month that has none: a past month is owed at once; this month joins the open cycle. */
-export async function addBillingMonth(enrollmentId: number, body: { month: string; amount: number; sessions?: number | null }): Promise<string> {
+/**
+ * Bill a joined month that has none: a past month is owed at once; this month joins the open
+ * cycle; NEXT month is paid in advance — `collect` is the money taken now (cash ledger + receipt).
+ */
+export async function addBillingMonth(enrollmentId: number, body: { month: string; amount: number; sessions?: number | null; collect?: number | null }): Promise<string> {
   const { data } = await client.post(`/teacher/enrollments/${enrollmentId}/billing-year/add`, {
-    month: body.month, amount: body.amount, ...(body.sessions ? { sessions: body.sessions } : {}),
+    month: body.month, amount: body.amount, ...(body.sessions ? { sessions: body.sessions } : {}), ...(body.collect ? { collect: body.collect } : {}),
   });
   return data?.message ?? '';
 }
