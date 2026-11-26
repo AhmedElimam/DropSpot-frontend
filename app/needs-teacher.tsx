@@ -15,8 +15,9 @@ import { ROUTE_BY_ROLE } from '@/utils/routes';
 
 /**
  * Self-registration wall. A student who signed up on their own lands here until a
- * teacher on the platform enrolls them. Nothing to do but hand their code/number to
- * a teacher and re-check — the wall lifts the moment an enrollment exists.
+ * teacher on the platform enrolls them, and a parent until one of their children is
+ * (2026-11-26). Nothing to do but hand the number to a teacher and re-check — the wall
+ * lifts the moment an enrollment exists.
  */
 export default function NeedsTeacherScreen() {
   const { t } = useTranslation();
@@ -24,6 +25,9 @@ export default function NeedsTeacherScreen() {
   const [stillWaiting, setStillWaiting] = useState(false);
 
   const user = useAuthStore((s) => s.user);
+  const isParent = useAuthStore((s) => s.role) === 'parent';
+  // The parent's words sit beside the student's: `needs_teacher.parent.*`.
+  const k = (key: string) => (isParent ? `needs_teacher.parent.${key}` : `needs_teacher.${key}`);
   const setSession = useAuthStore((s) => s.setSession);
   const setTokens = useAuthStore((s) => s.setTokens);
   const logout = useAuthStore((s) => s.logout);
@@ -56,18 +60,18 @@ export default function NeedsTeacherScreen() {
         <View style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: colors.onHeroChip, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.md }}>
           <Icon name="children" size={38} color={colors.onHero} />
         </View>
-        <Text style={{ fontFamily: fonts.bold, fontSize: 21, color: colors.onHero, textAlign: 'center' }}>{t('needs_teacher.title')}</Text>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 21, color: colors.onHero, textAlign: 'center' }}>{t(k('title'))}</Text>
       </LinearGradient>
 
       <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xxl }} showsVerticalScrollIndicator={false}>
         <View style={{ backgroundColor: colors.surface, borderRadius: radius.xxl, borderWidth: 1, borderColor: colors.border, padding: spacing.xl, ...shadows.sm }}>
           <Text style={{ fontFamily: fonts.regular, fontSize: 15, lineHeight: 26, color: colors.textSecondary }}>
-            {t('needs_teacher.message')}
+            {t(k('message'))}
           </Text>
 
           {/* The identifiers a teacher uses to find and add them. */}
           <View style={{ backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, padding: spacing.lg, marginTop: spacing.lg, gap: spacing.md }}>
-            {user?.student_code ? (
+            {!isParent && user?.student_code ? (
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                 <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textTertiary }}>{t('needs_teacher.your_code')}</Text>
                 <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary }}>{user.student_code}</Text>
@@ -75,7 +79,7 @@ export default function NeedsTeacherScreen() {
             ) : null}
             {user?.phone ? (
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textTertiary }}>{t('needs_teacher.your_phone')}</Text>
+                <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textTertiary }}>{t(k('your_phone'))}</Text>
                 <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary, writingDirection: 'ltr' }}>{user.phone}</Text>
               </View>
             ) : null}
@@ -85,7 +89,7 @@ export default function NeedsTeacherScreen() {
             <View style={{ flexDirection: 'row', gap: spacing.sm, backgroundColor: colors.warningLight ?? colors.surfaceSunken, borderRadius: radius.md, padding: spacing.md, marginTop: spacing.lg }}>
               <Icon name="clock" size={16} color={colors.warning} style={{ marginTop: 2 }} />
               <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.textSecondary }}>
-                {t('needs_teacher.still_waiting')}
+                {t(k('still_waiting'))}
               </Text>
             </View>
           )}

@@ -34,8 +34,9 @@ export default function Index() {
   }
 
   // Self-registration wall: a student who signed up on their own can't use the app
-  // until a subscribed teacher has enrolled them. Clears once an enrollment exists.
-  if (role === 'student' && user?.needs_teacher_invitation) {
+  // until a subscribed teacher has enrolled them; a parent until one of their children is
+  // (founder 2026-11-26). Clears once an enrollment exists.
+  if ((role === 'student' || role === 'parent') && user?.needs_teacher_invitation) {
     return <Redirect href={'/needs-teacher' as Href} />;
   }
 
