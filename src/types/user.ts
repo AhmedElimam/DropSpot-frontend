@@ -24,6 +24,8 @@ export interface User {
   must_accept_terms?: boolean;
   /** Self-registration wall (student): true until a subscribed teacher enrolls them. */
   needs_teacher_invitation?: boolean;
+  /** A confirmed flag on this family, worded for the parent or the student (2026-11-26). */
+  account_flag_message?: string | null;
   /**
    * Parent only. Their name was DERIVED from a child's (a teacher recording at the
    * door only had a phone number), so they are asked once, at first login, to confirm

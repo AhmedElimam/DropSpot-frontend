@@ -49,6 +49,12 @@ export interface CardStatus {
  * read from the cached login payload, which can be weeks old on a device that has not
  * signed in since — and a card's state changes without the student doing anything.
  */
+/** A confirmed flag on this family, for its own profile (2026-11-26). `message` is null when there is none. */
+export async function getMyAccountFlag(): Promise<{ message: string | null }> {
+  const { data } = await client.get('/me/account-flag');
+  return { message: (data?.data?.message as string | null | undefined) ?? null };
+}
+
 export async function getMyCardStatus(): Promise<CardStatus> {
   const { data } = await client.get('/me/card');
   return (data.data ?? {}) as CardStatus;

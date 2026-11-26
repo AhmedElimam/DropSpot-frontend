@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, RefreshControl } from 'react-native';
 import { ScrollView } from '@/components/ui/Refreshable';
 import QRCode from 'react-native-qrcode-svg';
 import { useTranslation } from 'react-i18next';
+import { AccountFlagBanner } from '@/components/AccountFlagBanner';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { router, type Href } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -86,6 +87,8 @@ export default function StudentProfile() {
         </Surface>
 
         <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4, gap: spacing.md }}>
+          {/* A confirmed flag on this family (2026-11-26): first, before anything else. */}
+          <AccountFlagBanner />
           {/* The card block.
               There is NO in-app QR (founder 2026-09-05). The printed card is the only
               scannable credential — handing every student a free digital one undercut the
