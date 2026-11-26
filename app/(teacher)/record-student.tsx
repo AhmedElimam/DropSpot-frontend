@@ -103,6 +103,8 @@ export default function RecordStudent() {
   // Names lose تشكيل and may carry a hyphen; phones accept Arabic digits, spaces, dashes and
   // +20 — both exactly as the server cleans them (v2), shown as they will be saved.
   const nameError = name.trim() !== '' && !isDoorName(name);
+  // The parent's name too (founder 2026-11-26: a parent was saved as «01115104596»).
+  const parentNameError = parentName.trim() !== '' && !isDoorName(parentName);
   const parentNorm = normalizeEgyptPhone(parentPhone);
   const studentNorm = normalizeEgyptPhone(studentPhone);
   const phoneError = parentPhone.trim() !== '' && parentNorm === null;
@@ -132,6 +134,7 @@ export default function RecordStudent() {
   const canSubmit =
     courseId != null &&
     isDoorName(name) &&
+    !parentNameError &&
     !studentPhoneError &&
     !phoneError &&
     !noPhone &&
@@ -624,8 +627,9 @@ export default function RecordStudent() {
               onChangeText={setParentName}
               placeholder={t('enroll_ui.full_name_ph')}
               placeholderTextColor={colors.textTertiary}
-              style={{ ...field(), marginBottom: spacing.lg, borderColor: parentName ? colors.brand : colors.borderStrong }}
+              style={{ ...field(), marginBottom: parentNameError ? spacing.xs : spacing.lg, borderColor: parentNameError ? colors.danger : parentName ? colors.brand : colors.borderStrong }}
             />
+            {parentNameError ? <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.danger, marginBottom: spacing.md }}>{t('enroll_ui.name_arabic_error')}</Text> : null}
             </Surface>
 
             {/* Relationship — OPTIONAL, tap to toggle. */}

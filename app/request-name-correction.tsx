@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { Alert } from '@/ui/dialog';
+import { isArabicName } from '@/utils/validators';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
@@ -40,6 +41,7 @@ export default function RequestNameCorrectionScreen() {
 
   const onSubmit = () => {
     if (!first.trim() && !last.trim()) { Alert.alert('', t('family_ui.name_fix_need_name')); return; }
+    if (!isArabicName(first) || !isArabicName(last)) { Alert.alert('', t('auth.name_arabic_only')); return; }
     if (reason.trim().length < 3) { Alert.alert('', t('family_ui.name_fix_need_reason')); return; }
     submit.mutate();
   };

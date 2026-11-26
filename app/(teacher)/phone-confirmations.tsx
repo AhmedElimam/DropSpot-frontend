@@ -17,7 +17,7 @@ import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { usePhoneConfirmations, PHONE_CONFIRMATIONS_KEY } from '@/hooks/usePhoneConfirmations';
 import { acknowledgePhone, sendPhoneConfirmationCode, confirmPhoneCode, addParentNumber, resendParentInvite, type PhoneConfirmation } from '@/api/phoneConfirmations';
-import { isEgyptPhone } from '@/utils/validators';
+import { isArabicName, isEgyptPhone } from '@/utils/validators';
 import { requestStudentEdit, flagParentNumber } from '@/api/students';
 import { Surface } from '@/ui/surfaces';
 
@@ -109,6 +109,10 @@ export default function PhoneConfirmationsScreen() {
     const phone = newNumber.trim();
     if (!isEgyptPhone(phone)) {
       Alert.alert(t('staff_ui.error'), t('enroll_ui.phone_invalid'));
+      return;
+    }
+    if (!isArabicName(parentName)) {
+      Alert.alert(t('staff_ui.error'), t('auth.name_arabic_only'));
       return;
     }
     void run(() => addParentNumber(it.student_id, phone, parentName.trim() || undefined, relation ?? undefined), t('staff_ui.phone_parent_added'));

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { configRule } from '@/stores/appConfigStore';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { isArabicName } from '@/utils/validators';
 import { useTranslation } from 'react-i18next';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
@@ -54,7 +55,8 @@ export default function ParentSetupScreen() {
 
   const setupMutation = useParentSetup();
 
-  const nameValid = name.trim().length >= 2;
+  const nameValid = name.trim().length >= 2 && isArabicName(name);
+  const nameArabicError = name.trim() !== '' && !isArabicName(name);
   const submit = () => {
     if (!token || password.length < configRule('password_min_length') || !termsAccepted || !nameValid) return;
     setupMutation.mutate(
@@ -103,8 +105,11 @@ export default function ParentSetupScreen() {
         onChangeText={setName}
         placeholder={t('setup.name')}
         placeholderTextColor={colors.textTertiary}
-        style={{ ...field(), marginBottom: spacing.lg, borderColor: name ? colors.brand : colors.borderStrong }}
+        style={{ ...field(), marginBottom: nameArabicError ? spacing.xs : spacing.lg, borderColor: nameArabicError ? colors.danger : name ? colors.brand : colors.borderStrong }}
       />
+      {nameArabicError ? (
+        <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.danger, marginBottom: spacing.lg }}>{t('auth.name_arabic_only')}</Text>
+      ) : null}
 
       {/* Relationship — optional, tap to toggle. */}
       <Text style={label()}>صلة القرابة</Text>

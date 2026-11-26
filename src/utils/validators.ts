@@ -32,9 +32,13 @@ export function validationMessage(name: string): string | undefined {
   return rule(name)?.message || undefined;
 }
 
-/** True when the (non-empty) name is Arabic-only. Empty strings are treated as valid (optional fields). */
+/**
+ * True when the (non-empty) name is Arabic letters only: no digits, no English (founder 2026-11-26).
+ * Judged as the server does (App\Rules\ArabicName::clean): تشكيل dropped, a hyphen allowed.
+ * Empty strings are treated as valid (optional fields).
+ */
 export function isArabicName(value: string): boolean {
-  const v = value.trim();
+  const v = value.trim().replace(/[\u064B-\u065F\u0670]/g, '').replace(/\s*-\s*/g, ' ');
   return v === '' || pattern('arabic_name', ARABIC_NAME_RE).test(v);
 }
 
