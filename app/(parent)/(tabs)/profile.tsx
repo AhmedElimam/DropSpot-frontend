@@ -3,6 +3,7 @@ import { ScrollView } from '@/components/ui/Refreshable';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { Alert } from '@/ui/dialog';
 import { useTranslation } from 'react-i18next';
+import { AccountFlagBanner } from '@/components/AccountFlagBanner';
 import { router, type Href } from 'expo-router';
 import { SupportContact } from '@/components/SupportContact';
 import { ThemeRow } from '@/components/ThemeRow';
@@ -102,6 +103,8 @@ export default function ParentSettings() {
         </Surface>
 
         <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4, gap: spacing.md }}>
+          {/* A confirmed flag on this family (2026-11-26): first, before anything else. */}
+          <AccountFlagBanner />
           <Surface id="parent.profile.card_info"><CardInfoRow /></Surface>
 
           <Surface id="parent.profile.account">
