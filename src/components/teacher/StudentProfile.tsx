@@ -2,6 +2,7 @@ import { track } from '@/lib/analytics';
 import { SheetModal } from '@/components/ui/SheetModal';
 import { View, Text, TouchableOpacity, ActivityIndicator, Linking, RefreshControl, TextInput } from 'react-native';
 import { Alert } from '@/ui/dialog';
+import { isArabicName } from '@/utils/validators';
 import { ScrollView } from '@/components/ui/Refreshable';
 import { useEffect, useRef, useState } from 'react';
 import { openRemotePdf } from '@/utils/openPdf';
@@ -332,6 +333,7 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
   const submitEdit = async () => {
     const first = editFirst.trim(), last = editLast.trim(), phone = editPhone.trim(), reason = editReason.trim();
     if (!first && !last && !phone) { Alert.alert('', t('student_profile_ui.edit_need_field')); return; }
+    if (!isArabicName(first) || !isArabicName(last)) { Alert.alert('', t('auth.name_arabic_only')); return; }
     if (!reason) { Alert.alert('', t('student_profile_ui.edit_need_reason')); return; }
     setEditBusy(true);
     try {

@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Switch, RefreshControl, KeyboardAvoidingView } from 'react-native';
 import { Alert } from '@/ui/dialog';
+import { isArabicName } from '@/utils/validators';
 import { ScrollView } from '@/components/ui/Refreshable';
 import { router, Redirect, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -269,6 +270,7 @@ export default function TeacherAssistants() {
 
   const submitCreate = () => {
     if (cFirst.trim().length < 2 || cPhone.trim().length < 6 || cPass.length < 6) return;
+    if (!isArabicName(cFirst)) { setCreateErr(t('auth.name_arabic_only')); return; }
     setCreateErr(null);
     create.mutate(
       { first_name: cFirst.trim(), phone_number: cPhone.trim(), password: cPass },

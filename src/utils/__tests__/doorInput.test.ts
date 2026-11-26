@@ -30,3 +30,15 @@ describe('door names', () => {
     expect(isDoorName('   ')).toBe(false);
   });
 });
+
+import { isArabicName } from '../validators';
+
+/** Founder 2026-11-26: no digits and no English in any name; تشكيل and a hyphen are fine. */
+describe('isArabicName', () => {
+  it('passes Arabic names, with or without تشكيل or a hyphen', () => {
+    for (const n of ['نبيل', 'محمد أحمد', 'أحمد المعلّم', 'مُحمّد', 'عبد-الرحمن حافظ', '']) expect(isArabicName(n)).toBe(true);
+  });
+  it('refuses digits and English', () => {
+    for (const n of ['01115104596', 'نبيل 2', 'محمد ٣', 'Mahmoud', 'عبد الرحمن حافظA']) expect(isArabicName(n)).toBe(false);
+  });
+});
