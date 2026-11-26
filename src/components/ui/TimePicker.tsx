@@ -35,6 +35,16 @@ function parse(value?: string | null): { h12: number; min: number; pm: boolean }
   return { h12: 4, min: 0, pm: true }; // sensible default: 4:00 م (typical class time)
 }
 
+/**
+ * A class time between 9 PM and 7 AM is almost always a ص/م slip (production 2026-11-13: a
+ * teacher turned the hour to 10, left the default «مساءً», and his 10 AM class lived at 10 PM
+ * for a week; another's 1:30 PM class sits at 1:30 AM). Such a pick is not refused — evening
+ * classes exist — it is named plainly in the sheet with a one-tap swap to the other half.
+ */
+export function isNightHour(h24: number): boolean {
+  return h24 >= 21 || h24 < 7;
+}
+
 /** "HH:mm" (24h) → localized 12-hour Arabic, e.g. "٤:٣٠ م". Empty when unset/invalid. */
 export function formatTime12(value?: string | null): string {
   if (!value || !VALID.test(value)) return '';
@@ -82,6 +92,9 @@ export function TimePicker({ value, onChange, placeholder, invalid }: Props) {
     setOpen(true);
   };
   const confirm = () => { onChange(to24(h12, min, pm)); setOpen(false); };
+  const picked = to24(h12, min, pm);
+  const night = isNightHour(Number(picked.slice(0, 2)));
+  const swapped = to24(h12, min, !pm);
 
   const chip = (active: boolean) => ({
     paddingHorizontal: spacing.md, minWidth: 52, minHeight: 44, justifyContent: 'center' as const, alignItems: 'center' as const,
@@ -145,6 +158,22 @@ export function TimePicker({ value, onChange, placeholder, invalid }: Props) {
                 <Text style={chipTxt(pm)}>{t('time_picker.pm')}</Text>
               </TouchableOpacity>
             </View>
+
+            {night ? (
+              // Said where the choice is made — no second popup over this sheet.
+              <View style={{ marginTop: spacing.md, backgroundColor: colors.warningLight, borderRadius: radius.md, padding: spacing.md, gap: spacing.sm }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+                  <Icon name="warning" size={18} color={colors.warningText} />
+                  <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 14, lineHeight: 21, color: colors.warningText }}>
+                    {t(pm ? 'time_picker.night_pm' : 'time_picker.night_am', { time: formatTime12(picked) })}
+                  </Text>
+                </View>
+                <TouchableOpacity onPress={() => setPm(!pm)} activeOpacity={0.85} accessibilityRole="button"
+                  style={{ minHeight: 44, borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.warningText, justifyContent: 'center', alignItems: 'center', paddingHorizontal: spacing.md }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.warningText }}>{t('time_picker.night_swap', { time: formatTime12(swapped) })}</Text>
+                </TouchableOpacity>
+              </View>
+            ) : null}
 
             <View style={{ flexDirection: 'row', gap: spacing.md, marginTop: spacing.xl }}>
               <TouchableOpacity onPress={() => setOpen(false)} style={{ flex: 1, minHeight: 52, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, justifyContent: 'center', alignItems: 'center' }}>
