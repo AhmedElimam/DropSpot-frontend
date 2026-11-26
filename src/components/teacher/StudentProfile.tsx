@@ -629,6 +629,42 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
               one global identity, so the digits typed at one door are the digits everyone
               calls. Narrow by construction — the server sends a sentence and a boolean, never
               which teacher, so this screen has nothing to leak even if it wanted to. */}
+          {/* What other teachers, or the platform, confirmed about this student or the parent
+              (2026-11-26). The server decides who sees what; this only shows it. */}
+          {s.parent_flag_notice || s.report_notice || s.report_flag ? (
+            <Surface id="teacher.student_profile.cross_teacher_flags">
+            <View style={{ gap: spacing.sm, marginTop: spacing.md }}>
+              {s.parent_flag_notice ? (
+                <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, backgroundColor: colors.dangerLight, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.danger, padding: spacing.md }}>
+                  <Icon name="warning" size={18} color={colors.dangerText} />
+                  <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 13, lineHeight: 20, color: colors.dangerText }}>
+                    {s.parent_flag_notice_message ?? t('student_profile_ui.parent_flag_fallback')}
+                  </Text>
+                </View>
+              ) : null}
+              {s.report_notice ? (
+                <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, backgroundColor: colors.dangerLight, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.danger, padding: spacing.md }}>
+                  <Icon name="warning" size={18} color={colors.dangerText} />
+                  <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 13, lineHeight: 20, color: colors.dangerText }}>
+                    {s.report_notice_message ?? t('student_profile_ui.report_notice_fallback')}
+                  </Text>
+                </View>
+              ) : null}
+              {s.report_flag ? (
+                <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, borderStartWidth: 6, borderStartColor: s.report_flag.color, padding: spacing.md }}>
+                  <Icon name="warning" size={18} color={s.report_flag.color} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary }}>{s.report_flag.label}</Text>
+                    {s.report_flag.tooltip ? (
+                      <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.textSecondary }}>{s.report_flag.tooltip}</Text>
+                    ) : null}
+                  </View>
+                </View>
+              ) : null}
+            </View>
+            </Surface>
+          ) : null}
+
           {s.shared_unproved_number ? (
             <Surface id="teacher.student_profile.shared_unproved_banner">
             <TouchableOpacity

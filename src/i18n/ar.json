@@ -3702,6 +3702,8 @@
     "kind_attendance_edit": "تعديل حضور"
   },
   "student_profile_ui": {
+    "parent_flag_fallback": "لدى وليّ أمر هذا الطالب تنبيه مؤكَّد من إدارة المنصة. يُرجى التواصل مع الإدارة قبل المتابعة.",
+    "report_notice_fallback": "أحد المعلمين قدّم بلاغًا بخصوص هذا الطالب، وتم التحقق منه وتأكيده.",
     "other": "أخرى",
     "egp_amount": "{{amount}} ج.م",
     "collected_all_receipt": "تم تحصيل {{amount}} ج.م. سيصل الإيصال لولي الأمر.",

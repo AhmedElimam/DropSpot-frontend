@@ -67,6 +67,9 @@ export interface LookupStudent {
   report_notice_message: string | null;
   // A confirmed report's cross-tenant colored flag (null → fixed message fallback).
   report_flag?: DisclosureFlag | null;
+  /** A confirmed flag on the parent — another teacher's or the platform's (2026-11-26). */
+  parent_flag_notice?: boolean;
+  parent_flag_notice_message?: string | null;
 }
 
 export interface LookupResult {
@@ -284,6 +287,15 @@ export interface StudentDetail {
   quick_sessions?: QuickSession[];
   parent_number_notice?: boolean;
   parent_number_notice_message?: string | null;
+  /**
+   * What every other teacher (or the platform) confirmed about this student or the parent
+   * (2026-11-26): a confirmed report, a coloured flag, a confirmed parent flag. Older servers omit them.
+   */
+  parent_flag_notice?: boolean;
+  parent_flag_notice_message?: string | null;
+  report_notice?: boolean;
+  report_notice_message?: string | null;
+  report_flag?: DisclosureFlag | null;
   /**
    * This student studies with another teacher too and nobody has PROVED their number.
    * Narrow by construction: a boolean and a fixed sentence — never which teacher.
