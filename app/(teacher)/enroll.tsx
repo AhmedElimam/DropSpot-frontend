@@ -405,6 +405,12 @@ export default function TeacherEnroll() {
                     {review.student.report_notice_message}
                   </Text>
                 ) : null}
+                {/* A confirmed flag on the parent (2026-11-26): the server sent it, nothing showed it. */}
+                {review.kind !== 'offline' && 'parent_flag_notice' in review.student && review.student.parent_flag_notice ? (
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 13, lineHeight: 20, color: colors.danger, marginTop: spacing.md }}>
+                    {review.student.parent_flag_notice_message ?? t('student_profile_ui.parent_flag_fallback')}
+                  </Text>
+                ) : null}
                 </Surface>
               </View>
 
