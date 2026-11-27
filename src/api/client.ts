@@ -14,6 +14,7 @@ import { getCachedAccessToken, setCachedAccessToken } from '@/api/tokenCache';
 import { resolveAppId } from '@/utils/appIdentity';
 import { binaryVersion } from '@/utils/binaryVersion';
 import { otaIdentity } from '@/utils/otaIdentity';
+import { installId } from '@/api/installId';
 
 /**
  * Resolve the API base URL.
@@ -130,6 +131,9 @@ client.interceptors.request.use(async (config) => {
   const ota = otaIdentity();
   config.headers['X-App-Update'] = ota.update;
   config.headers['X-App-Bundle'] = ota.bundle;
+  // This install's random id (src/api/installId.ts): two accounts on one phone show up as linked.
+  const install = await installId();
+  if (install) config.headers['X-Install-Id'] = install;
   // The staging door (src/config/env.ts): a staging build carries the key on every request.
   if (STAGING_KEY) config.headers[STAGING_HEADER] = STAGING_KEY;
 
