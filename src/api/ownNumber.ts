@@ -1,14 +1,12 @@
 import client from './client';
 
 /**
- * Deferred verification wall for the student's OWN number. A daily server sweep flags
- * students whose own number is still unverified 24h+ after registering; the app
- * hard-blocks on `user.needs_own_number_verification` until this loop succeeds.
+ * The student's OWN number (2026-11-26). 24 hours after the first sign-in, a student whose
+ * number is not proved is blocked (`user.needs_own_number_verification`).
  *
- *  - send   → OTP to the number on file.
- *  - verify → correct code clears the wall.
- *  - change → corrects a wrong number AND sends a fresh OTP; the wall stays up until
- *             that number is verified (re-typing a different number never dismisses it).
+ *  - The student can only ask for one code on the number on file and type it in. They
+ *    can't change the number.
+ *  - Their teacher corrects the number if needed and proves it with a code on the spot.
  */
 
 export async function sendOwnNumberOtp(): Promise<{ masked_phone: string }> {
@@ -20,7 +18,14 @@ export async function verifyOwnNumber(code: string): Promise<void> {
   await client.post('/student/own-number/verify', { code });
 }
 
-export async function changeOwnNumber(phone_number: string): Promise<{ masked_phone: string }> {
-  const { data } = await client.post('/student/own-number/change', { phone_number });
+/** Teacher: send a code to the student's number, or to a corrected one. */
+export async function teacherSendStudentNumberCode(studentId: number, phone?: string): Promise<{ phone: string }> {
+  const { data } = await client.post(`/teacher/students/${studentId}/own-number/send`, phone ? { phone } : {});
+  return data.data ?? data;
+}
+
+/** Teacher: the code the student read out; the number is saved and proved. */
+export async function teacherVerifyStudentNumber(studentId: number, code: string): Promise<{ phone: string; verified: boolean }> {
+  const { data } = await client.post(`/teacher/students/${studentId}/own-number/verify`, { code });
   return data.data ?? data;
 }

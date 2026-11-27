@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { configRule } from '@/stores/appConfigStore';
-import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, ScrollView, KeyboardAvoidingView } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { router, type Href } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -11,38 +11,23 @@ import { colors, spacing, radius, gradients, control, shadows } from '@/theme/in
 import { Icon } from '@/components/ui/Icon';
 import { useAuthStore } from '@/stores/authStore';
 import { getFriendlyErrorMessage } from '@/utils/errors';
-import { sendOwnNumberOtp, verifyOwnNumber, changeOwnNumber } from '@/api/ownNumber';
+import { sendOwnNumberOtp, verifyOwnNumber } from '@/api/ownNumber';
 import { OtpInput } from '@/components/auth/OtpInput';
 
 /** The countdown is a backend rule (/admin/config → otp_resend_seconds), read when the screen opens. */
 const RESEND_COOLDOWN = () => configRule('otp_resend_seconds');
 
-const field = () => ({
-  fontFamily: fonts.regular,
-  fontSize: 17,
-  minHeight: control.minHeight,
-  backgroundColor: colors.surfaceSunken,
-  borderRadius: radius.lg,
-  paddingHorizontal: spacing.lg,
-  paddingVertical: 14,
-  color: colors.textPrimary,
-  textAlign: 'right' as const,
-  borderWidth: 1.5,
-  borderColor: colors.border,
-});
-
 /**
  * Own-number verification. Two ways in, and they must not feel the same:
  *
- *  - AS A WALL — reached from app/index.tsx when `needs_own_number_verification` is set.
- *    No way back: the rest of the app is unreachable until that number is OTP-verified.
- *  - BY CHOICE — opened from the profile row when the number simply is not proved yet.
- *    Then there IS a back button, because nothing is being withheld; the student asked.
+ *  - AS A WALL: reached from app/index.tsx when `needs_own_number_verification` is set
+ *    (24 hours after the first sign-in, the number still unproved). No way back.
+ *  - BY CHOICE: opened from the profile row when the number simply is not proved yet.
+ *    Then there IS a back button, because nothing is being withheld.
  *
- * The difference is read from the flag itself rather than a route param, so a walled
- * student can never reach the exit by arriving through the other door. Correcting a wrong
- * number is possible either way: each new number sends a FRESH code, and re-typing never
- * clears the wall on its own.
+ * The student can NOT change the number here (founder, 2026-11-26). Nothing is sent on
+ * its own: one code goes to the number on file each time they press the button. A wrong
+ * number is corrected by their teacher, who proves the new one with a code on the spot.
  */
 
 export default function VerifyOwnNumberScreen() {
@@ -59,16 +44,13 @@ export default function VerifyOwnNumberScreen() {
 
   const [code, setCode] = useState('');
   const [masked, setMasked] = useState('');
-  const [cooldown, setCooldown] = useState(RESEND_COOLDOWN());
-  const [editing, setEditing] = useState(false);
-  const [newPhone, setNewPhone] = useState('');
+  const [cooldown, setCooldown] = useState(0);
 
-  // Send the first code as the wall opens.
+  // One code per press, never on its own.
   const send = useMutation({
     mutationFn: sendOwnNumberOtp,
     onSuccess: (r) => { setMasked(r.masked_phone); setCooldown(RESEND_COOLDOWN()); },
   });
-  useEffect(() => { send.mutate(); /* once on mount */ }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (cooldown <= 0) return;
@@ -86,19 +68,9 @@ export default function VerifyOwnNumberScreen() {
     },
   });
 
-  const change = useMutation({
-    mutationFn: () => changeOwnNumber(newPhone.trim()),
-    onSuccess: (r) => {
-      setMasked(r.masked_phone);
-      setEditing(false);
-      setNewPhone('');
-      setCode('');
-      setCooldown(RESEND_COOLDOWN());
-    },
-  });
-
   const canVerify = code.length === 6 && !verify.isPending;
-  const err = verify.isError ? verify.error : change.isError ? change.error : send.isError ? send.error : null;
+  const err = verify.isError ? verify.error : send.isError ? send.error : null;
+  const sent = !!masked;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -131,7 +103,7 @@ export default function VerifyOwnNumberScreen() {
               {t('own_number.hint')}
             </Text>
 
-            {!!masked && !editing && (
+            {sent && (
               <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.textPrimary, marginBottom: spacing.lg }}>
                 {t('own_number.sent_to')} <Text style={{ fontFamily: fonts.bold }}>{masked}</Text>
               </Text>
@@ -144,34 +116,11 @@ export default function VerifyOwnNumberScreen() {
               </View>
             )}
 
-            {editing ? (
-              <>
-                <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.textSecondary, marginBottom: spacing.sm }}>{t('own_number.new_number_label')}</Text>
-                <TextInput
-                  value={newPhone}
-                  onChangeText={setNewPhone}
-                  keyboardType="phone-pad"
-                  placeholder={t('own_number.new_number_placeholder')}
-                  placeholderTextColor={colors.textTertiary}
-                  style={field()}
-                  editable={!change.isPending}
-                />
-                <TouchableOpacity
-                  onPress={() => newPhone.trim().length >= 6 && !change.isPending && change.mutate()}
-                  disabled={newPhone.trim().length < 6 || change.isPending}
-                  style={{ marginTop: spacing.lg, minHeight: control.minHeight, borderRadius: radius.lg, backgroundColor: newPhone.trim().length >= 6 ? colors.primary : colors.border, justifyContent: 'center', alignItems: 'center', flexDirection: 'row', gap: spacing.sm }}
-                >
-                  {change.isPending ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>{t('own_number.save_number')}</Text>}
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => { setEditing(false); setNewPhone(''); }} style={{ marginTop: spacing.md, alignItems: 'center' }}>
-                  <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary }}>{t('common.cancel')}</Text>
-                </TouchableOpacity>
-              </>
-            ) : (
+            {sent ? (
               <>
                 <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.textSecondary, marginBottom: spacing.sm }}>{t('own_number.code_label')}</Text>
                 {/* The same fitted code cells as the other OTP screens (OtpInput). */}
-                <OtpInput value={code} onChange={setCode} onComplete={() => { if (!verify.isPending) verify.mutate(); }} autoFocus={false} />
+                <OtpInput value={code} onChange={setCode} onComplete={() => { if (!verify.isPending) verify.mutate(); }} autoFocus />
 
                 <TouchableOpacity
                   onPress={() => canVerify && verify.mutate()}
@@ -181,18 +130,28 @@ export default function VerifyOwnNumberScreen() {
                   {verify.isPending ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>{t('own_number.verify')}</Text>}
                 </TouchableOpacity>
 
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: spacing.lg }}>
-                  <TouchableOpacity onPress={() => setEditing(true)}>
-                    <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.primary }}>{t('own_number.wrong_number')}</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={() => cooldown <= 0 && !send.isPending && send.mutate()} disabled={cooldown > 0 || send.isPending}>
-                    <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: cooldown > 0 ? colors.textTertiary : colors.primary }}>
-                      {cooldown > 0 ? t('own_number.resend_in', { seconds: cooldown }) : t('own_number.resend')}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
+                <TouchableOpacity onPress={() => cooldown <= 0 && !send.isPending && send.mutate()} disabled={cooldown > 0 || send.isPending} style={{ marginTop: spacing.lg, alignItems: 'center' }}>
+                  <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: cooldown > 0 ? colors.textTertiary : colors.primary }}>
+                    {cooldown > 0 ? t('own_number.resend_in', { seconds: cooldown }) : t('own_number.resend')}
+                  </Text>
+                </TouchableOpacity>
               </>
+            ) : (
+              <TouchableOpacity
+                onPress={() => !send.isPending && send.mutate()}
+                disabled={send.isPending}
+                accessibilityRole="button"
+                style={{ minHeight: control.minHeight, borderRadius: radius.lg, backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center', flexDirection: 'row', gap: spacing.sm }}
+              >
+                {send.isPending ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>{t('own_number.send_code')}</Text>}
+              </TouchableOpacity>
             )}
+
+            {/* Not their number? Only the teacher can correct it (and proves it on the spot). */}
+            <View style={{ marginTop: spacing.xl, backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, padding: spacing.md, flexDirection: 'row', gap: spacing.sm, alignItems: 'flex-start' }}>
+              <Icon name="info" size={18} color={colors.textSecondary} />
+              <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.textSecondary }}>{t('own_number.wrong_number_teacher')}</Text>
+            </View>
           </View>
 
           <TouchableOpacity onPress={() => logout()} style={{ marginTop: spacing.xl, alignItems: 'center' }}>

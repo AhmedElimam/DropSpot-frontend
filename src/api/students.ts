@@ -307,6 +307,14 @@ export interface StudentDetail {
   phone_verified?: boolean;
   phone_vouched?: boolean;
   /**
+   * The student's own number is not proved (2026-11-26). `own_number_blocked`: their app is
+   * locked now, 24h after the first sign-in. `own_number_block_starts`: the date the block
+   * begins, while it has not started yet. Only the teacher can correct and prove the number.
+   */
+  own_number_unconfirmed?: boolean;
+  own_number_blocked?: boolean;
+  own_number_block_starts?: string | null;
+  /**
    * Siblings sharing one phone (founder 2026-11-19): `holder` = his number is the shared one,
    * `sibling` = he signs in from a brother's phone. Null / absent = not shared.
    */

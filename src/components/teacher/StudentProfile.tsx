@@ -39,6 +39,7 @@ import { SendReportSheet } from '@/components/tickets/SendReportSheet';
 import { StudentHomeworkCard } from '@/components/homework/StudentHomeworkCard';
 import { OpenTicketSheet } from '@/components/tickets/OpenTicketSheet';
 import { sharedPhoneLine } from '@/utils/sharedProfiles';
+import { OwnNumberFixSheet } from '@/components/teacher/OwnNumberFixSheet';
 
 /** One person to call: who, the number with who has proved it, call (and report, for a parent). */
 function ContactRow({ icon, label, name, phone, badge, empty, onCall, onFlag, divider = false }: {
@@ -133,6 +134,7 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
   const [exporting, setExporting] = useState(false);
   const [sendReportOpen, setSendReportOpen] = useState(false);
   const [openTicket, setOpenTicket] = useState(false);
+  const [ownFixOpen, setOwnFixOpen] = useState(false);
   // Cancel a specific collected payment (teacher-only; the server enforces + returns
   // an empty `collected` list for assistants, so the UI is naturally hidden for them).
   const [reversing, setReversing] = useState<number | null>(null);
@@ -667,6 +669,39 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
             </Surface>
           ) : null}
 
+          {/* The student's own number is not proved (2026-11-26). Only the teacher can correct
+              it, and proves it on the spot with a code the student reads out. */}
+          {s.own_number_unconfirmed ? (
+            <Surface id="teacher.student_profile.own_number_banner">
+            <View style={{
+              gap: spacing.sm, marginTop: spacing.md, padding: spacing.md, borderRadius: radius.lg, borderWidth: 1,
+              backgroundColor: s.own_number_blocked ? colors.dangerLight : colors.warningLight,
+              borderColor: s.own_number_blocked ? colors.danger : colors.warning,
+            }}>
+              <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm }}>
+                <Icon name={s.own_number_blocked ? 'lock' : 'call'} size={18} color={s.own_number_blocked ? colors.dangerText : colors.warningText} />
+                <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 13, lineHeight: 20, color: s.own_number_blocked ? colors.dangerText : colors.warningText }}>
+                  {s.own_number_blocked
+                    ? t('student_profile_ui.own_number_blocked')
+                    : s.own_number_block_starts
+                      ? t('student_profile_ui.own_number_unconfirmed_from', { date: formatDayDate(s.own_number_block_starts) })
+                      : t('student_profile_ui.own_number_unconfirmed')}
+                </Text>
+              </View>
+              {canManage ? (
+                <TouchableOpacity
+                  onPress={() => setOwnFixOpen(true)}
+                  accessibilityRole="button"
+                  activeOpacity={0.85}
+                  style={{ alignSelf: 'flex-start', minHeight: 40, paddingHorizontal: spacing.lg, borderRadius: radius.md, backgroundColor: s.own_number_blocked ? colors.danger : colors.brand, justifyContent: 'center' }}
+                >
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: '#fff' }}>{t('student_profile_ui.own_number_fix_button')}</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+            </Surface>
+          ) : null}
+
           {s.shared_unproved_number ? (
             <Surface id="teacher.student_profile.shared_unproved_banner">
             <TouchableOpacity
@@ -1158,6 +1193,7 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
       {s ? (
         <Surface id="teacher.student_profile.send_report_sheet" ctx={{ student: s }}>
           <SendReportSheet visible={sendReportOpen} onClose={() => setSendReportOpen(false)} studentId={Number(s.id)} studentName={s.name ?? ''} />
+          <OwnNumberFixSheet visible={ownFixOpen} onClose={() => setOwnFixOpen(false)} onDone={() => { void refetch(); }} studentId={Number(s.id)} studentName={s.name ?? ''} currentPhone={s.phone ?? null} />
           <OpenTicketSheet visible={openTicket} onClose={() => setOpenTicket(false)} studentId={Number(s.id)} studentName={s.name ?? ''} parents={s.parents} />
         </Surface>
       ) : null}
